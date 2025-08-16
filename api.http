@@ -1,0 +1,36 @@
+### 0. Ping
+GET http://localhost:8080/ping
+
+### 1. 게시물 생성 (응답 바디에 생성된 id가 돌아옴)
+POST http://localhost:8080/api/posts
+Content-Type: application/json
+
+{
+  "title": "첫 번째 글",
+  "content": "테스트 내용입니다.",
+  "author": "dohyun"
+}
+
+### 2. 단일 조회 (여기서는 예시로 id=2 가정)
+GET http://localhost:8080/api/posts/1
+
+### 3. 목록 조회 (페이징)
+GET http://localhost:8080/api/posts?page=0&size=10
+
+//### 4. 게시물 수정  (id=2 예시)
+//PUT http://localhost:8080/api/posts/1
+//Content-Type: application/json
+
+//{
+//  "title": "수정된 제목",
+//  "content": "수정된 내용입니다."
+//}
+
+//### 5. 수정 확인 (단일 조회)
+//GET http://localhost:8080/api/posts/1
+
+//### 6. 게시물 삭제
+//DELETE http://localhost:8080/api/posts/1
+
+//### 7. 삭제 확인 (404 기대)
+//GET http://localhost:8080/api/posts/1
