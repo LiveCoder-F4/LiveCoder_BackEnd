@@ -1,0 +1,358 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>LiveCoder 로그인/회원가입 테스트</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 20px;
+            background-color: #f5f5f5;
+        }
+
+        .container {
+            background-color: white;
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+            margin-bottom: 20px;
+        }
+
+        h1, h2 {
+            color: #333;
+        }
+
+        .form-group {
+            margin-bottom: 15px;
+        }
+
+        label {
+            display: block;
+            margin-bottom: 5px;
+            font-weight: bold;
+        }
+
+        input[type="text"], input[type="email"], input[type="password"], textarea {
+            width: 100%;
+            padding: 8px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            box-sizing: border-box;
+        }
+
+        button {
+            background-color: #007bff;
+            color: white;
+            padding: 10px 20px;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            margin-right: 10px;
+        }
+
+        button:hover {
+            background-color: #0056b3;
+        }
+
+        .response {
+            margin-top: 15px;
+            padding: 10px;
+            border-radius: 4px;
+            white-space: pre-wrap;
+            font-family: monospace;
+            font-size: 12px;
+        }
+
+        .success {
+            background-color: #d4edda;
+            border: 1px solid #c3e6cb;
+            color: #155724;
+        }
+
+        .error {
+            background-color: #f8d7da;
+            border: 1px solid #f5c6cb;
+            color: #721c24;
+        }
+
+        .info {
+            background-color: #d1ecf1;
+            border: 1px solid #bee5eb;
+            color: #0c5460;
+        }
+
+        .token-display {
+            background-color: #f8f9fa;
+            border: 1px solid #dee2e6;
+            padding: 10px;
+            border-radius: 4px;
+            word-break: break-all;
+            margin-top: 10px;
+        }
+
+        .status-indicator {
+            display: inline-block;
+            padding: 5px 10px;
+            border-radius: 15px;
+            font-weight: bold;
+            margin-left: 10px;
+        }
+
+        .authenticated {
+            background-color: #28a745;
+            color: white;
+        }
+
+        .not-authenticated {
+            background-color: #dc3545;
+            color: white;
+        }
+    </style>
+</head>
+<body>
+<h1>LiveCoder 인증 테스트 <span id="authStatus" class="status-indicator not-authenticated">인증 안됨</span></h1>
+
+<!-- 회원가입 섹션 -->
+<div class="container">
+    <h2>회원가입</h2>
+    <div class="form-group">
+        <label for="regUsername">사용자명:</label>
+        <input type="text" id="regUsername" placeholder="사용자명 입력">
+    </div>
+    <div class="form-group">
+        <label for="regEmail">이메일:</label>
+        <input type="email" id="regEmail" placeholder="이메일 입력">
+    </div>
+    <div class="form-group">
+        <label for="regPassword">비밀번호:</label>
+        <input type="password" id="regPassword" placeholder="비밀번호 입력">
+    </div>
+    <div class="form-group">
+        <label for="regNickname">닉네임:</label>
+        <input type="text" id="regNickname" placeholder="닉네임 입력">
+    </div>
+    <div class="form-group">
+        <label for="regBio">자기소개:</label>
+        <textarea id="regBio" placeholder="자기소개 입력" rows="3"></textarea>
+    </div>
+    <div class="form-group">
+        <label for="regGithub">GitHub URL:</label>
+        <input type="text" id="regGithub" placeholder="GitHub URL 입력">
+    </div>
+    <button onclick="register()">회원가입</button>
+    <div id="registerResponse" class="response" style="display: none;"></div>
+</div>
+
+<!-- 로그인 섹션 -->
+<div class="container">
+    <h2>로그인</h2>
+    <div class="form-group">
+        <label for="loginUsername">사용자명 또는 이메일:</label>
+        <input type="text" id="loginUsername" placeholder="사용자명 또는 이메일 입력">
+    </div>
+    <div class="form-group">
+        <label for="loginPassword">비밀번호:</label>
+        <input type="password" id="loginPassword" placeholder="비밀번호 입력">
+    </div>
+    <button onclick="login()">로그인</button>
+    <button onclick="logout()">로그아웃</button>
+    <div id="loginResponse" class="response" style="display: none;"></div>
+    <div id="tokenDisplay" class="token-display" style="display: none;">
+        <strong>JWT 토큰:</strong>
+        <div id="tokenValue"></div>
+    </div>
+</div>
+
+<!-- 인증 테스트 섹션 -->
+<div class="container">
+    <h2>인증 테스트</h2>
+    <button onclick="checkAuth()">인증 상태 확인</button>
+    <div id="authResponse" class="response" style="display: none;"></div>
+</div>
+
+
+<div class="container">
+    <h2>사용자 조회</h2>
+    <button onclick="printAllUsers()">전체 사용자 콘솔에 출력</button>
+    <input id="search-input" type="text">
+    <button onclick="getUserInfo()">사용자 정보 조회</button>
+</div>
+
+<script>
+    const API_BASE_URL = 'http://localhost:8080/api';
+    let authToken = localStorage.getItem('authToken');
+
+    // 페이지 로드 시 인증 상태 확인
+    window.onload = function () {
+        if (authToken) {
+            updateAuthStatus(true);
+            document.getElementById('tokenDisplay').style.display = 'block';
+            document.getElementById('tokenValue').textContent = authToken;
+        }
+        checkAuth();
+    };
+
+    // 인증 상태 UI 업데이트
+    function updateAuthStatus(isAuthenticated) {
+        const statusElement = document.getElementById('authStatus');
+        if (isAuthenticated) {
+            statusElement.textContent = '인증됨';
+            statusElement.className = 'status-indicator authenticated';
+        } else {
+            statusElement.textContent = '인증 안됨';
+            statusElement.className = 'status-indicator not-authenticated';
+        }
+    }
+
+    // 응답 표시 함수
+    function showResponse(elementId, response, isSuccess = true) {
+        const element = document.getElementById(elementId);
+        element.style.display = 'block';
+        element.textContent = JSON.stringify(response, null, 2);
+        element.className = `response ${isSuccess ? 'success' : 'error'}`;
+    }
+
+    // 회원가입
+    async function register() {
+        const data = {
+            username: document.getElementById('regUsername').value,
+            email: document.getElementById('regEmail').value,
+            password: document.getElementById('regPassword').value,
+            nickname: document.getElementById('regNickname').value,
+            bio: document.getElementById('regBio').value,
+            githubUrl: document.getElementById('regGithub').value
+        };
+
+        try {
+            const response = await fetch(`${API_BASE_URL}/users/register`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify(data)
+            });
+
+            const result = await response.text();
+            showResponse('registerResponse', {
+                status: response.status,
+                message: result
+            }, response.ok);
+        } catch (error) {
+            showResponse('registerResponse', {error: error.message}, false);
+        }
+    }
+
+    // 로그인
+    async function login() {
+        const data = {
+            usernameOrEmail: document.getElementById('loginUsername').value,
+            password: document.getElementById('loginPassword').value
+        };
+
+        try {
+            const response = await fetch(`${API_BASE_URL}/users/login`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify(data)
+            });
+
+            const result = await response.json();
+            showResponse('loginResponse', result, response.ok);
+
+            if (response.ok && result.token) {
+                authToken = result.token;
+                localStorage.setItem('authToken', authToken);
+                document.getElementById('tokenDisplay').style.display = 'block';
+                document.getElementById('tokenValue').textContent = authToken;
+                updateAuthStatus(true);
+            }
+        } catch (error) {
+            showResponse('loginResponse', {error: error.message}, false);
+        }
+    }
+
+    // 로그아웃
+    function logout() {
+        authToken = null;
+        localStorage.removeItem('authToken');
+        document.getElementById('tokenDisplay').style.display = 'none';
+        document.getElementById('tokenValue').textContent = '';
+        updateAuthStatus(false);
+        showResponse('loginResponse', {message: '로그아웃 되었습니다.'}, true);
+    }
+
+    // 인증 상태 확인
+    async function checkAuth() {
+        try {
+            const headers = {
+                'Content-Type': 'application/json',
+            };
+
+            if (authToken) {
+                headers['Authorization'] = `Bearer ${authToken}`;
+            }
+
+            const response = await fetch(`${API_BASE_URL}/users/auth-check`, {
+                method: 'GET',
+                headers: headers
+            });
+
+            const result = await response.json();
+            showResponse('authResponse', result, response.ok);
+
+            updateAuthStatus(result.authenticated);
+        } catch (error) {
+            showResponse('authResponse', {error: error.message}, false);
+            updateAuthStatus(false);
+        }
+    }
+
+    // 사용자 정보 조회 (예시)
+    async function getUserInfo() {
+        if (!authToken) {
+            showResponse('authResponse', {error: '로그인이 필요합니다.'}, false);
+            return;
+        }
+
+        try {
+            let username = document.getElementById("search-input").value
+            const response = await fetch(`${API_BASE_URL}/users/search?username=${username}`, {
+                method: 'GET',
+                headers: {
+                    'Authorization': `Bearer ${authToken}`,
+                    'Content-Type': 'application/json',
+                }
+            });
+
+            const result = await response.json();
+            console.log(result)
+        } catch (error) {
+        }
+    }
+
+    async function printAllUsers() {
+        try {
+            const response = await fetch(`${API_BASE_URL}/users`, {
+                method: 'GET',
+                headers: {
+                    'Content-Type': 'application/json'
+                }
+            });
+
+            const result = await response.json();
+
+            if (response.ok) {
+                console.log(result);
+            }
+        } catch (error) {
+            console.error('사용자 조회 에러:', error);
+        }
+    }
+</script>
+</body>
+</html>
