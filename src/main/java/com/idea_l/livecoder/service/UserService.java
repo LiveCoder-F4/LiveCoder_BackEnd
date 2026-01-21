@@ -90,7 +90,7 @@ public class UserService {
         user.setBio(request.getBio());
         user.setGithubUrl(request.getGithubUrl());
         user.setTotalSolved(0);
-        user.setCurrentExp(0);
+        user.setIsSolvedPublic(false);
         user.setCreatedAt(LocalDateTime.now());
 
         // 3. 저장

@@ -18,7 +18,7 @@ import org.springframework.web.bind.annotation.*;
 
 @Tag(name = "게시글 관리", description = "게시글 CRUD API")
 @RestController
-@RequestMapping("/api/posts")
+@RequestMapping("/posts")
 public class PostController {
 
     private final PostService postService;

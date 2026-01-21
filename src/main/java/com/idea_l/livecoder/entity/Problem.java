@@ -67,7 +67,4 @@ public class Problem {
     @OneToMany(mappedBy = "problem", cascade = CascadeType.ALL, fetch = FetchType.LAZY)
     private List<ProblemSubmission> submissions;
 
-    @OneToMany(mappedBy = "problem", cascade = CascadeType.ALL, fetch = FetchType.LAZY)
-    private List<Battle> battles;
-
 }

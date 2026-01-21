@@ -3,7 +3,7 @@ package com.idea_l.livecoder.entity;
 import jakarta.persistence.*;
 import lombok.*;
 import org.hibernate.annotations.CreationTimestamp;
-import com.idea_l.livecoder.enums.RequestStatus;
+import com.idea_l.livecoder.enums.CollabInviteStatus;
 import java.time.LocalDateTime;
 
 @Setter
@@ -12,30 +12,31 @@ import java.time.LocalDateTime;
 @NoArgsConstructor
 @AllArgsConstructor
 @Entity
-@Table(name = "battle_requests")
-public class BattleRequest {
+@Table(name = "collab_invites")
+public class CollabInvite {
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
-    @Column(name = "request_id")
-    private Long requestId;
+    @Column(name = "invite_id")
+    private Long inviteId;
 
     @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "challenger_id", nullable = false)
-    private User challenger;
+    @JoinColumn(name = "collab_id", nullable = false)
+    private CollabTeam collabTeam;
 
     @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "challenged_id", nullable = false)
-    private User challenged;
+    @JoinColumn(name = "inviter_id", nullable = false)
+    private User inviter;
+
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "invitee_id", nullable = false)
+    private User invitee;
 
     @Enumerated(EnumType.STRING)
     @Column(name = "status", nullable = false)
-    private RequestStatus status = RequestStatus.PENDING;
+    private CollabInviteStatus status = CollabInviteStatus.PENDING;
 
     @CreationTimestamp
     @Column(name = "created_at", nullable = false)
     private LocalDateTime createdAt;
-
-    @OneToOne(mappedBy = "request", cascade = CascadeType.ALL, fetch = FetchType.LAZY)
-    private Battle battle;
 
 }

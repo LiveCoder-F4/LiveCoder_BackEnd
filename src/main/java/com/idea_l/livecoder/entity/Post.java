@@ -29,13 +29,16 @@ public class Post {
     @Column(name = "content", nullable = false, columnDefinition = "TEXT")
     private String content;
 
-    @Column(name = "comment_count", nullable = false)
+    @Column(name = "is_notice", nullable = false)
+    private Boolean isNotice = false;
+
+    @Column(name = "comment_count")
     private Integer commentCount = 0;
 
-    @Column(name = "view_count", nullable = false)
+    @Column(name = "view_count")
     private Integer viewCount = 0;
 
-    @Column(name = "like_count", nullable = false)
+    @Column(name = "like_count")
     private Integer likeCount = 0;
 
     @CreationTimestamp

@@ -22,7 +22,7 @@ import java.util.Optional;
 
 @Tag(name = "사용자 관리", description = "사용자 관련 API")
 @RestController
-@RequestMapping("/api/users")
+@RequestMapping("/users")
 public class UserController {
 
     private final UserRepository userRepository;
@@ -39,13 +39,15 @@ public class UserController {
 
     // 1. 모든 사용자 조회
     @GetMapping
+    @Operation(summary = "모든 사용자 조회", description = "등록된 모든 사용자 목록을 조회합니다")
     public List<User> getAllUsers() {
         return userRepository.findAll();
     }
 
     // 2. 특정 사용자 조회
     @GetMapping("/{id}")
-    public User getUserById(@PathVariable Long id) {
+    @Operation(summary = "특정 사용자 조회", description = "ID로 특정 사용자의 정보를 조회합니다")
+    public User getUserById(@Parameter(description = "사용자 ID") @PathVariable Long id) {
         Optional<User> user = userRepository.findById(id);
         if (user.isPresent()) {
             return user.get();
@@ -113,7 +115,7 @@ public class UserController {
     }
 
     // 4. 사용자 정보 수정
-    @Operation(summary = "사용자 정보 수정")
+    @Operation(summary = "사용자 정보 수정", description = "사용자의 닉네임, 소개, Github URL을 수정합니다")
     @PutMapping("/{id}")
     public User updateUser(@Parameter(description = "사용자 ID") @PathVariable Long id, @RequestBody User userDetails) {
         User user = userRepository.findById(id)
@@ -127,7 +129,7 @@ public class UserController {
     }
 
     // 5. 사용자 삭제
-    @Operation(summary = "사용자 삭제")
+    @Operation(summary = "사용자 삭제", description = "ID로 특정 사용자를 삭제합니다")
     @DeleteMapping("/{id}")
     public String deleteUser(@Parameter(description = "사용자 ID") @PathVariable Long id) {
         if (userRepository.existsById(id)) {
@@ -139,7 +141,7 @@ public class UserController {
     }
 
     // 6. 사용자명으로 검색
-    @Operation(summary = "사용자명 검색")
+    @Operation(summary = "사용자명 검색", description = "사용자명으로 사용자를 검색합니다")
     @GetMapping("/search")
     public Optional<User> getUserByUsername(@Parameter(description = "사용자명") @RequestParam String username) {
         Optional<User> user = userRepository.findByUsername(username);

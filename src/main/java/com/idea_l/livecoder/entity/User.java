@@ -38,14 +38,11 @@ public class User {
     @Column(name = "total_solved")
     private Integer totalSolved = 0;
 
-    @Column(name = "current_exp")
-    private Integer currentExp = 0;
-
-    @Column(name = "exp_to_next_level")
-    private Integer expToNextLevel;
-
-    @Column(name = "github_url", length = 100)
+    @Column(name = "github_url", length = 200)
     private String githubUrl;
+
+    @Column(name = "is_solved_public", nullable = false)
+    private Boolean isSolvedPublic = false;
 
     @Column(name = "last_active_at")
     private LocalDateTime lastActiveAt;
@@ -74,9 +71,5 @@ public class User {
     @JsonIgnore
     @OneToMany(mappedBy = "user", cascade = CascadeType.ALL, fetch = FetchType.LAZY)
     private List<Notification> notifications;
-
-    @JsonIgnore
-    @OneToOne(mappedBy = "user", cascade = CascadeType.ALL, fetch = FetchType.LAZY)
-    private UserBattleStats battleStats;
 
 }

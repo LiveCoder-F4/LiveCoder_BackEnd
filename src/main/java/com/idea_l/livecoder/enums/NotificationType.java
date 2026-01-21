@@ -5,7 +5,6 @@ import lombok.Getter;
 @Getter
 public enum NotificationType {
     FRIEND_REQUEST("friend_request"),
-    BATTLE_INVITE("battle_invite"),
     COMMENT("comment"),
     LIKE("like"),
     SYSTEM("system");

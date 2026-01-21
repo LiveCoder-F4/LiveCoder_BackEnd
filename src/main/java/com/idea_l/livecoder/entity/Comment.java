@@ -37,9 +37,6 @@ public class Comment {
     @Column(name = "content", nullable = false, columnDefinition = "TEXT")
     private String content;
 
-    @Column(name = "like_count")
-    private Integer likeCount = 0;
-
     @CreationTimestamp
     @Column(name = "created_at")
     private LocalDateTime createdAt;
