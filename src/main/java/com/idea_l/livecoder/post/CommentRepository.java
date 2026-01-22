@@ -1,6 +1,6 @@
 package com.idea_l.livecoder.post;
 
-import jakarta.transaction.Transactional;
+// import jakarta.transaction.Transactional; 제거 추천 service랑 안맞음
 import org.springframework.data.jpa.repository.EntityGraph;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Modifying;
@@ -17,7 +17,7 @@ public interface CommentRepository extends JpaRepository<Comment, Long> {
     List<Comment> findByPostPostIdOrderByCreatedAtAsc(Long postId);
     //좋아요 먼저 지우기와 마찬가지로 게시글 지울때 댓글이 fk로 막을수있음
     //댓글 먼저지우기
-    @Modifying
-    @Transactional // 환경차 안전빵
+    @Modifying // 환경차 안전빵
+    //@Transactional
     void deleteByPostPostId(Long postId);
 }

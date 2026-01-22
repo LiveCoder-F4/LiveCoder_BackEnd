@@ -6,6 +6,7 @@ import lombok.*;
 import org.hibernate.annotations.CreationTimestamp;
 
 import java.time.LocalDateTime;
+import java.util.ArrayList;
 import java.util.List;
 
 @Setter
@@ -35,7 +36,7 @@ public class Comment {
 
     // ✅ 대댓글까지 같이 삭제 보장
     @OneToMany(mappedBy = "parent", cascade = CascadeType.ALL, orphanRemoval = true, fetch = FetchType.LAZY)
-    private List<Comment> replies;
+    private List<Comment> replies = new ArrayList<>();
 
     @Column(name = "content", nullable = false, columnDefinition = "TEXT")
     private String content;
