@@ -1,98 +1,108 @@
 package com.idea_l.livecoder.post;
 
-import com.idea_l.livecoder.post.PostCreateRequest;
-import com.idea_l.livecoder.post.PostResponse;
-import com.idea_l.livecoder.post.PostUpdateRequest;
-import com.idea_l.livecoder.post.PostService;
-import io.swagger.v3.oas.annotations.Operation;
-import io.swagger.v3.oas.annotations.Parameter;
-import io.swagger.v3.oas.annotations.media.Content;
-import io.swagger.v3.oas.annotations.media.Schema;
-import io.swagger.v3.oas.annotations.responses.ApiResponse;
-import io.swagger.v3.oas.annotations.responses.ApiResponses;
-import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
-import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
-@Tag(name = "게시글 관리", description = "게시글 CRUD API")
+import java.util.Map;
+
 @RestController
 @RequestMapping("/posts")
 public class PostController {
 
     private final PostService postService;
 
-    @Autowired
     public PostController(PostService postService) {
         this.postService = postService;
     }
 
+    // ✅ 커뮤니티 목록: 공지 3개 고정 + 일반글 페이지
+    @GetMapping("/community")
+    public ResponseEntity<PostApiResponse<CommunityPostsResponse>> getCommunity(
+            @RequestParam(defaultValue = "0") int page,
+            @RequestParam(defaultValue = "10") int size
+    ) {
+        return ResponseEntity.ok(PostApiResponse.ok(postService.getCommunity(page, size)));
+    }
+
+    // ✅ 상세(댓글 트리 포함) + 조회수 증가
+    @GetMapping("/{postId}")
+    public ResponseEntity<PostApiResponse<PostDetailResponse>> getDetail(@PathVariable Long postId) {
+        return ResponseEntity.ok(PostApiResponse.ok(postService.getPostDetail(postId)));
+    }
+
+    // ✅ 게시글 작성(일반글)
     @PostMapping
-    @Operation(summary = "게시글 작성", description = "새로운 게시글을 작성합니다.")
-    @ApiResponses(value = {
-            @ApiResponse(responseCode = "200", description = "게시글 작성 성공",
-                    content = @Content(schema = @Schema(implementation = Long.class))),
-            @ApiResponse(responseCode = "400", description = "잘못된 요청 데이터"),
-            @ApiResponse(responseCode = "404", description = "존재하지 않는 사용자")
-    })
-    public ResponseEntity<Long> createPost(
-            @io.swagger.v3.oas.annotations.parameters.RequestBody(
-                    description = "게시글 작성 요청 정보",
-                    required = true,
-                    content = @Content(schema = @Schema(implementation = PostCreateRequest.class))
-            )
+    public ResponseEntity<PostApiResponse<Map<String, Long>>> createPost(
             @RequestBody @Valid PostCreateRequest request
     ) {
-        return ResponseEntity.ok(postService.createPost(request));
+        Long postId = postService.createPost(request);
+        return ResponseEntity.ok(PostApiResponse.ok(Map.of("postId", postId)));
     }
 
-    @GetMapping("/{id}")
-    @Operation(summary = "게시글 조회", description = "특정 게시글의 상세 정보를 조회합니다.")
-    @ApiResponses(value = {
-            @ApiResponse(responseCode = "200", description = "게시글 조회 성공",
-                    content = @Content(schema = @Schema(implementation = PostResponse.class))),
-            @ApiResponse(responseCode = "404", description = "존재하지 않는 게시글")
-    })
-    public ResponseEntity<PostResponse> getPost(
-            @Parameter(description = "조회할 게시글의 ID", required = true, example = "1")
-            @PathVariable Long id
-    ) {
-        return ResponseEntity.ok(postService.getPost(id));
-    }
-
-    @DeleteMapping("/{id}")
-    @Operation(summary = "게시글 삭제", description = "특정 게시글을 삭제합니다.")
-    @ApiResponses(value = {
-            @ApiResponse(responseCode = "204", description = "게시글 삭제 성공"),
-            @ApiResponse(responseCode = "404", description = "존재하지 않는 게시글")
-    })
-    public ResponseEntity<Void> deletePost(
-            @Parameter(description = "삭제할 게시글의 ID", required = true, example = "1")
-            @PathVariable Long id
-    ) {
-        postService.deletePost(id);
-        return ResponseEntity.noContent().build();
-    }
-
-    @PutMapping("/{id}")
-    @Operation(summary = "게시글 수정", description = "특정 게시글의 제목과 내용을 수정합니다.")
-    @ApiResponses(value = {
-            @ApiResponse(responseCode = "200", description = "게시글 수정 성공",
-                    content = @Content(schema = @Schema(implementation = PostResponse.class))),
-            @ApiResponse(responseCode = "400", description = "잘못된 요청 데이터"),
-            @ApiResponse(responseCode = "404", description = "존재하지 않는 게시글")
-    })
-    public ResponseEntity<PostResponse> updatePost(
-            @Parameter(description = "수정할 게시글의 ID", required = true, example = "1")
-            @PathVariable Long id,
-            @io.swagger.v3.oas.annotations.parameters.RequestBody(
-                    description = "게시글 수정 요청 정보",
-                    required = true,
-                    content = @Content(schema = @Schema(implementation = PostUpdateRequest.class))
-            )
+    // ✅ 게시글 수정
+    @PutMapping("/{postId}")
+    public ResponseEntity<PostApiResponse<Map<String, Long>>> updatePost(
+            @PathVariable Long postId,
             @RequestBody @Valid PostUpdateRequest request
     ) {
-        return ResponseEntity.ok(postService.updatePost(id, request));
+        postService.updatePost(postId, request);
+        return ResponseEntity.ok(PostApiResponse.ok(Map.of("postId", postId)));
+    }
+
+    // ✅ 게시글 삭제
+    @DeleteMapping("/{postId}")
+    public ResponseEntity<PostApiResponse<Map<String, Long>>> deletePost(@PathVariable Long postId) {
+        postService.deletePost(postId);
+        return ResponseEntity.ok(PostApiResponse.ok(Map.of("postId", postId), "DELETED"));
+    }
+
+    // ✅ 댓글/대댓글 작성
+    @PostMapping("/{postId}/comments")
+    public ResponseEntity<PostApiResponse<Map<String, Long>>> createComment(
+            @PathVariable Long postId,
+            @RequestBody @Valid CommentCreateRequest request
+    ) {
+        Long commentId = postService.createComment(postId, request);
+        return ResponseEntity.ok(PostApiResponse.ok(Map.of("commentId", commentId)));
+    }
+
+    // ✅ 댓글 삭제(대댓글 포함 삭제)
+    @DeleteMapping("/{postId}/comments/{commentId}")
+    public ResponseEntity<PostApiResponse<Map<String, Long>>> deleteComment(
+            @PathVariable Long postId,
+            @PathVariable Long commentId
+    ) {
+        postService.deleteComment(postId, commentId);
+        return ResponseEntity.ok(PostApiResponse.ok(Map.of("commentId", commentId), "DELETED"));
+    }
+
+    // ✅ 좋아요
+    @PostMapping("/{postId}/likes")
+    public ResponseEntity<PostApiResponse<Map<String, Long>>> likePost(
+            @PathVariable Long postId,
+            @RequestParam Long userId
+    ) {
+        postService.likePost(postId, userId);
+        return ResponseEntity.ok(PostApiResponse.ok(Map.of("postId", postId), "LIKED"));
+    }
+
+    // ✅ 좋아요 취소
+    @DeleteMapping("/{postId}/likes")
+    public ResponseEntity<PostApiResponse<Map<String, Long>>> unlikePost(
+            @PathVariable Long postId,
+            @RequestParam Long userId
+    ) {
+        postService.unlikePost(postId, userId);
+        return ResponseEntity.ok(PostApiResponse.ok(Map.of("postId", postId), "UNLIKED"));
+    }
+
+    // ✅ 공지 작성(관리자 전용)
+    @PostMapping("/admin/notices")
+    public ResponseEntity<PostApiResponse<Map<String, Long>>> createNotice(
+            @RequestBody @Valid AdminNoticeCreateRequest request
+    ) {
+        Long postId = postService.createNotice(request);
+        return ResponseEntity.ok(PostApiResponse.ok(Map.of("postId", postId)));
     }
 }
