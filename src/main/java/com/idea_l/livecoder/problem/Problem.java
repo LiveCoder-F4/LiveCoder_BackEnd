@@ -23,12 +23,16 @@ public class Problem {
     @Column(nullable = false, columnDefinition = "TEXT")
     private String description; // 문제 설명
 
+    @Column(nullable = false, columnDefinition = "TEXT")
+    private String input;
+
     @Column(nullable = false)
     private String answer;  // 정답 (지금은 문자열로 단순화)
 
-    public Problem(String title, String description, String answer) {
+    public Problem(String title, String description, String answer, String input) {
         this.title = title;
         this.description = description;
         this.answer = answer;
+        this.input = input;
     }
 }

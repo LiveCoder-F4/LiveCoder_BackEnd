@@ -23,6 +23,7 @@ public class ProblemService {
                 problem.setTitle(request.getTitle());
                 problem.setDescription(request.getDescription());
                 problem.setAnswer(request.getAnswer());
+                problem.setInput(request.getInput());
 
 
         problemRepository.save(problem);
