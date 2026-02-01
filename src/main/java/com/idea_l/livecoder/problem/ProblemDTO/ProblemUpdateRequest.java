@@ -11,17 +11,18 @@ public class ProblemUpdateRequest{
 
     private String title;
     private String description;
-    private String answer;
 
-    public String getTitle() {
-        return title;
-    }
+    private String inputDescription;
+    private String outputDescription;
 
-    public String getAnswer() {
-        return answer;
-    }
+    private String sampleInput;
+    private String sampleOutput;
 
-    public String getDescription() {
-        return description;
-    }
+    private String constraints;
+
+    private Integer timeLimit;
+    private Integer memoryLimit;
+
+    private Long difficulty_id;
+
 }

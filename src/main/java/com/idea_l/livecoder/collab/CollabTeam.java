@@ -1,7 +1,7 @@
 package com.idea_l.livecoder.collab;
 
 import com.idea_l.livecoder.user.User;
-import com.idea_l.livecoder.problem.Problem;
+import com.idea_l.livecoder.problem.Problems;
 import com.idea_l.livecoder.common.CollabVisibility;
 import jakarta.persistence.*;
 import lombok.*;
@@ -31,7 +31,7 @@ public class CollabTeam {
 
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "problem_id")
-    private Problem problem;
+    private Problems problems;
 
     @Enumerated(EnumType.STRING)
     @Column(name = "visibility", nullable = false)

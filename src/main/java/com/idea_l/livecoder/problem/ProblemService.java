@@ -1,66 +1,113 @@
 package com.idea_l.livecoder.problem;
 
+import com.idea_l.livecoder.problem.Difficulty.Difficulty;
+import com.idea_l.livecoder.problem.Difficulty.DifficultyRepository;
+import lombok.RequiredArgsConstructor;
+import org.springframework.beans.factory.parsing.Problem;
 import org.springframework.transaction.annotation.Transactional;
 import com.idea_l.livecoder.problem.ProblemDTO.*;
-import com.idea_l.livecoder.problem.*;
-import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 
 import java.util.List;
 
 @Service
+@RequiredArgsConstructor
 public class ProblemService {
 
     private final ProblemRepository problemRepository;
+    private final DifficultyRepository difficultyRepository;
 
-    public ProblemService(ProblemRepository problemRepository) {
-        this.problemRepository = problemRepository;
-    }
 
     public void create(ProblemCreateRequest request) {
-        Problem problem = new Problem();
 
-                problem.setTitle(request.getTitle());
-                problem.setDescription(request.getDescription());
-                problem.setAnswer(request.getAnswer());
-                problem.setInput(request.getInput());
+        Difficulty difficulty = difficultyRepository.findById(request.getDifficulty_id())
+                .orElseThrow(() -> new IllegalArgumentException("존재하지 않는 난이도"));
+
+        Problems problems = new Problems();
+
+                problems.setTitle(request.getTitle());
+                problems.setDescription(request.getDescription());
+                problems.setInputDescription(request.getInputDescription());
+                problems.setOutputDescription(request.getOutputDescription());
+                problems.setSampleInput(request.getSampleInput());
+                problems.setSampleOutput(request.getSampleOutput());
+                problems.setConstraints(request.getConstraints());
+                problems.setTimeLimit(request.getTimeLimit());
+                problems.setMemoryLimit(request.getMemoryLimit());
+                problems.setDifficulty(difficulty);
 
 
-        problemRepository.save(problem);
+        problemRepository.save(problems);
     }
-
+    @Transactional(readOnly = true)
     public List<ProblemResponse> getAll() {
         return problemRepository.findAll()
                 .stream()
-                .map(problem -> new ProblemResponse(
-                        problem.getProblemId(),
-                        problem.getTitle(),
-                        problem.getDescription()
+                .map(problems -> new ProblemResponse(
+                        problems.getProblem_id(),
+                        problems.getTitle(),
+                        problems.getDescription(),
+                        problems.getInputDescription(),
+                        problems.getOutputDescription(),
+                        problems.getSampleInput(),
+                        problems.getSampleOutput(),
+                        problems.getConstraints(),
+                        problems.getTimeLimit(),
+                        problems.getMemoryLimit(),
+                        problems.getDifficulty().getDifficulty_id(),
+                        problems.getDifficulty().getName()
                 ))
                 .toList();
     }
 
+    @Transactional(readOnly = true)
+    public ProblemResponse getOne(Long id) {
 
-    public Problem getOne(Long id) {
-        return problemRepository.findById(id)
-                .orElseThrow(() -> new RuntimeException("문제 없음 " + id));
+        Problems problems = problemRepository.findById(id)
+                .orElseThrow(() -> new IllegalArgumentException("문제 없음"));
+
+        return new ProblemResponse(
+                problems.getProblem_id(),
+                problems.getTitle(),
+                problems.getDescription(),
+                problems.getInputDescription(),
+                problems.getOutputDescription(),
+                problems.getSampleInput(),
+                problems.getSampleOutput(),
+                problems.getConstraints(),
+                problems.getTimeLimit(),
+                problems.getMemoryLimit(),
+                problems.getDifficulty().getDifficulty_id(),
+                problems.getDifficulty().getName()
+        );
     }
 
 
     @Transactional
-    public void update(Long id, ProblemUpdateRequest request) {
-        Problem problem = problemRepository.findById(id)
-                .orElseThrow(() -> new RuntimeException("문제 없음" + id));
+    public void update(Long problem_id, ProblemUpdateRequest request) {
 
-        problem.setTitle(request.getTitle());
-        problem.setDescription(request.getDescription());
-        problem.setAnswer(request.getAnswer());
+        Difficulty difficulty = difficultyRepository.findById(request.getDifficulty_id())
+                .orElseThrow(() -> new IllegalArgumentException("존재하지 않는 난이도"));
+
+        Problems problems = problemRepository.findById(problem_id)
+                .orElseThrow(() -> new RuntimeException("문제 없음" + problem_id));
+
+        problems.setTitle(request.getTitle());
+        problems.setDescription(request.getDescription());
+        problems.setInputDescription(request.getInputDescription());
+        problems.setOutputDescription(request.getOutputDescription());
+        problems.setSampleInput(request.getSampleInput());
+        problems.setSampleOutput(request.getSampleOutput());
+        problems.setConstraints(request.getConstraints());
+        problems.setTimeLimit(request.getTimeLimit());
+        problems.setMemoryLimit(request.getMemoryLimit());
+        problems.setDifficulty(difficulty);
     }
 
-    public void delete(Long id) {
-        Problem problem = problemRepository.findById(id)
-                .orElseThrow(()-> new RuntimeException("문제 없음" + id));
+    public void delete(Long problem_id) {
+        Problems problems = problemRepository.findById(problem_id)
+                .orElseThrow(()-> new RuntimeException("문제 없음" + problem_id));
 
-        problemRepository.delete(problem);
+        problemRepository.delete(problems);
     }
 }

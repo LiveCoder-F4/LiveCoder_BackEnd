@@ -27,30 +27,30 @@ public class ProblemController{
     }
 
     @GetMapping("/{id}")
-    public Problem getOne(@PathVariable Long id){
+    public ProblemResponse getOne(@PathVariable Long id) {
         return problemService.getOne(id);
     }
 
-    @PutMapping("/{id}")
-    public void update(@PathVariable Long id, @RequestBody ProblemUpdateRequest request){
-        problemService.update(id, request);
+    @PutMapping("/{problem_id}")
+    public void update(@PathVariable Long problem_id, @RequestBody ProblemUpdateRequest request){
+        problemService.update(problem_id, request);
     }
 
-    @DeleteMapping("/{id}")
-    public void delete(@PathVariable Long id){
-        problemService.delete(id);
+    @DeleteMapping("/{problem_id}")
+    public void delete(@PathVariable Long problem_id){
+        problemService.delete(problem_id);
     }
 
-    @PostMapping("/{id}/submissions")
+    @PostMapping("/{problem_id}/submissions")
     public ResponseEntity<String> submit(
-            @PathVariable Long id,
+            @PathVariable Long problem_id,
             @RequestBody CodeSubmitRequest request
     ) throws Exception {
 
-        Problem problem = problemService.getOne(id);
+        ProblemResponse response = problemService.getOne(problem_id);
 
         boolean correct =
-                problemJudgeService.judgeProblem(problem, request.getCode());
+                problemJudgeService.judgeProblem(response, request.getCode());
 
         return ResponseEntity.ok(
                 correct ? "CORRECT" : "WRONG"

@@ -11,8 +11,18 @@ public class ProblemCreateRequest{
 
     private String title;
     private String description;
-    private String answer;
-    private String input;
 
+    private String inputDescription;
+    private String outputDescription;
+
+    private String sampleInput;
+    private String sampleOutput;
+
+    private String constraints;
+
+    private Integer timeLimit;
+    private Integer memoryLimit;
+
+    private Long difficulty_id;
 
 }
