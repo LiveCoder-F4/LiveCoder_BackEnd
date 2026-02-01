@@ -17,10 +17,14 @@ public class JavaJudgeService {
         Files.writeString(workDir.resolve("Main.java"), code);
 
         ProcessBuilder pb = new ProcessBuilder(
-                "docker", "run", "--rm", "-i",
+                "docker", "run", "--rm",
+                "-i",
                 "-v", workDir.toAbsolutePath() + ":/app",
-                "java-judge"
+                "java-judge",
+                "sh", "-c",
+                "cd /app && javac Main.java && java Main"
         );
+
 
         Process process = pb.start();
 
@@ -28,6 +32,7 @@ public class JavaJudgeService {
         try (BufferedWriter writer =
                      new BufferedWriter(new OutputStreamWriter(process.getOutputStream()))) {
             writer.write(input);
+            writer.newLine();
             writer.flush();
         }
 

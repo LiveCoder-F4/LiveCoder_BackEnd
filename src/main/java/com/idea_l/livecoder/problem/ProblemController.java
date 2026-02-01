@@ -27,7 +27,7 @@ public class ProblemController{
     }
 
     @GetMapping("/{id}")
-    public ProblemResponse getOne(@PathVariable Long id) {
+    public Problems getOne(@PathVariable Long id) {
         return problemService.getOne(id);
     }
 
@@ -47,10 +47,10 @@ public class ProblemController{
             @RequestBody CodeSubmitRequest request
     ) throws Exception {
 
-        ProblemResponse response = problemService.getOne(problem_id);
+        Problems problems = problemService.getOne(problem_id);
 
         boolean correct =
-                problemJudgeService.judgeProblem(response, request.getCode());
+                problemJudgeService.judgeProblem(problems, request.getCode());
 
         return ResponseEntity.ok(
                 correct ? "CORRECT" : "WRONG"

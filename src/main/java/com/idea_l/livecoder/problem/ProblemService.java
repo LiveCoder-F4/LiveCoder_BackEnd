@@ -61,25 +61,10 @@ public class ProblemService {
     }
 
     @Transactional(readOnly = true)
-    public ProblemResponse getOne(Long id) {
+    public Problems getOne(Long id) {
 
-        Problems problems = problemRepository.findById(id)
+        return problemRepository.findById(id)
                 .orElseThrow(() -> new IllegalArgumentException("문제 없음"));
-
-        return new ProblemResponse(
-                problems.getProblem_id(),
-                problems.getTitle(),
-                problems.getDescription(),
-                problems.getInputDescription(),
-                problems.getOutputDescription(),
-                problems.getSampleInput(),
-                problems.getSampleOutput(),
-                problems.getConstraints(),
-                problems.getTimeLimit(),
-                problems.getMemoryLimit(),
-                problems.getDifficulty().getDifficulty_id(),
-                problems.getDifficulty().getName()
-        );
     }
 
 

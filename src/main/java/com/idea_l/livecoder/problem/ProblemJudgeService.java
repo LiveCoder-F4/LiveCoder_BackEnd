@@ -11,14 +11,14 @@ public class ProblemJudgeService {
 
     private final JavaJudgeService javaJudgeService;
 
-    public boolean judgeProblem(ProblemResponse response, String userCode) throws Exception {
+    public boolean judgeProblem(Problems problems, String userCode) throws Exception {
 
         String result = javaJudgeService.judge(
                 userCode,
-                response.getSampleOutput()
+                problems.getSampleInput()
         );
 
         return result.trim()
-                .equals(response.getSampleOutput().trim());
+                .equals(problems.getSampleOutput().trim());
     }
 }
