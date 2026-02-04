@@ -8,6 +8,8 @@ import com.idea_l.livecoder.user.UserRepository;
 import com.idea_l.livecoder.common.JwtUtil;
 import jakarta.transaction.Transactional;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.security.core.Authentication;
+import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 
@@ -106,5 +108,22 @@ public class UserService {
         String token = jwtUtil.generateToken(user.getUsername(), user.getUserId());
 
         return LoginResponse.success(user.getUserId(), user.getUsername(), user.getNickname(), token);
+    }
+
+    public User getCurrentUser() {
+        Authentication authentication =
+                SecurityContextHolder.getContext().getAuthentication();
+
+        if (authentication == null || !authentication.isAuthenticated()) {
+            throw new RuntimeException("로그인 필요");
+        }
+
+        String username = authentication.getPrincipal().toString();
+        User user = userRepository.findByUsername(username)
+                .orElseThrow();
+        Long userId = user.getUserId();
+
+        return userRepository.findById(userId)
+                .orElseThrow(() -> new RuntimeException("유저 없음"));
     }
 }

@@ -46,7 +46,7 @@ public class Problems {
     @JoinColumn(name = "difficulty_id", nullable = false)
     private Difficulty difficulty;
 
-    // ⭐ 생성자
+
     public Problems(
             String title,
             String description,

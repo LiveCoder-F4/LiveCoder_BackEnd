@@ -2,6 +2,7 @@ package com.idea_l.livecoder.problem;
 
 import java.util.List;
 import com.idea_l.livecoder.problem.ProblemDTO.*;
+import com.idea_l.livecoder.problem.submissions.SubmissionService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
@@ -13,6 +14,7 @@ public class ProblemController{
 
     private final ProblemService problemService;
     private final ProblemJudgeService problemJudgeService;
+    private final SubmissionService submissionService;
 
 
 
@@ -42,15 +44,13 @@ public class ProblemController{
     }
 
     @PostMapping("/{problem_id}/submissions")
-    public ResponseEntity<String> submit(
+    public ResponseEntity<?> submit(
             @PathVariable Long problem_id,
             @RequestBody CodeSubmitRequest request
     ) throws Exception {
 
-        Problems problems = problemService.getOne(problem_id);
-
         boolean correct =
-                problemJudgeService.judgeProblem(problems, request.getCode());
+                submissionService.submit(problem_id, request.getCode());
 
         return ResponseEntity.ok(
                 correct ? "CORRECT" : "WRONG"
