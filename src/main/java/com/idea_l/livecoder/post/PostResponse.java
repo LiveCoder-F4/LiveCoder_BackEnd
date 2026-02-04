@@ -47,3 +47,4 @@ public record PostResponse(
         );
     }
 }
+// 상세(내용 포함)용

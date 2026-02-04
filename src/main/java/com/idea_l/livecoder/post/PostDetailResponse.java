@@ -1,0 +1,19 @@
+package com.idea_l.livecoder.post;
+
+import java.time.LocalDateTime;
+import java.util.List;
+
+public record PostDetailResponse(
+        Long postId,
+        String title,
+        String content,
+        Long userId,
+        String nickname,
+        Integer viewCount,
+        Integer likeCount,
+        Integer commentCount,
+        LocalDateTime createdAt,
+        List<CommentResponse> comments
+) {}
+
+//댓글 포함 상세용
