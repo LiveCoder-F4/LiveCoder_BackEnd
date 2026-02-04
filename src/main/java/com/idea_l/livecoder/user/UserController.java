@@ -118,14 +118,22 @@ public class UserController {
         return userRepository.save(user);
     }
 
-    @Operation(summary = "사용자 삭제", description = "ID로 특정 사용자를 삭제합니다")
+    @Operation(summary = "회원 탈퇴", description = "비밀번호 확인 후 회원 탈퇴를 처리합니다")
     @DeleteMapping("/{id}")
-    public String deleteUser(@Parameter(description = "사용자 ID") @PathVariable Long id) {
-        if (userRepository.existsById(id)) {
-            userRepository.deleteById(id);
-            return "사용자가 삭제되었습니다.";
-        } else {
-            throw new RuntimeException("사용자를 찾을 수 없습니다: " + id);
+    public ResponseEntity<?> deleteUser(
+            @Parameter(description = "사용자 ID") @PathVariable Long id,
+            @Valid @RequestBody PasswordConfirmRequest request,
+            HttpServletRequest httpRequest) {
+        Long tokenUserId = getUserIdFromToken(httpRequest);
+        if (!id.equals(tokenUserId)) {
+            return ResponseEntity.status(403).body("본인만 탈퇴할 수 있습니다");
+        }
+
+        try {
+            userService.deleteUserWithPasswordConfirm(id, request.getPassword());
+            return ResponseEntity.ok("회원 탈퇴가 완료되었습니다");
+        } catch (IllegalArgumentException e) {
+            return ResponseEntity.badRequest().body(e.getMessage());
         }
     }
 
@@ -138,5 +146,73 @@ public class UserController {
         } else {
             throw new RuntimeException("사용자를 찾을 수 없습니다: " + username);
         }
+    }
+
+    @Operation(summary = "비밀번호 변경", description = "사용자의 비밀번호를 변경합니다")
+    @PutMapping("/{id}/password")
+    public ResponseEntity<?> changePassword(
+            @Parameter(description = "사용자 ID") @PathVariable Long id,
+            @Valid @RequestBody PasswordChangeRequest request,
+            HttpServletRequest httpRequest) {
+        Long tokenUserId = getUserIdFromToken(httpRequest);
+        if (!id.equals(tokenUserId)) {
+            return ResponseEntity.status(403).body("본인만 비밀번호를 변경할 수 있습니다");
+        }
+
+        try {
+            userService.changePassword(id, request);
+            return ResponseEntity.ok("비밀번호가 변경되었습니다");
+        } catch (IllegalArgumentException e) {
+            return ResponseEntity.badRequest().body(e.getMessage());
+        }
+    }
+
+    @Operation(summary = "이메일 변경", description = "사용자의 이메일을 변경합니다")
+    @PutMapping("/{id}/email")
+    public ResponseEntity<?> changeEmail(
+            @Parameter(description = "사용자 ID") @PathVariable Long id,
+            @Valid @RequestBody EmailChangeRequest request,
+            HttpServletRequest httpRequest) {
+        Long tokenUserId = getUserIdFromToken(httpRequest);
+        if (!id.equals(tokenUserId)) {
+            return ResponseEntity.status(403).body("본인만 이메일을 변경할 수 있습니다");
+        }
+
+        try {
+            userService.changeEmail(id, request);
+            return ResponseEntity.ok("이메일이 변경되었습니다");
+        } catch (IllegalArgumentException e) {
+            return ResponseEntity.badRequest().body(e.getMessage());
+        }
+    }
+
+    @Operation(summary = "풀이 공개 여부 변경", description = "사용자의 풀이 공개 여부를 변경합니다")
+    @PutMapping("/{id}/solved")
+    public ResponseEntity<?> updateSolvedVisibility(
+            @Parameter(description = "사용자 ID") @PathVariable Long id,
+            @Valid @RequestBody SolvedVisibilityRequest request,
+            HttpServletRequest httpRequest) {
+        Long tokenUserId = getUserIdFromToken(httpRequest);
+        if (!id.equals(tokenUserId)) {
+            return ResponseEntity.status(403).body("본인만 설정을 변경할 수 있습니다");
+        }
+
+        try {
+            userService.updateSolvedVisibility(id, request);
+            return ResponseEntity.ok("풀이 공개 설정이 변경되었습니다");
+        } catch (IllegalArgumentException e) {
+            return ResponseEntity.badRequest().body(e.getMessage());
+        }
+    }
+
+    private Long getUserIdFromToken(HttpServletRequest request) {
+        String authHeader = request.getHeader("Authorization");
+        if (authHeader != null && authHeader.startsWith("Bearer ")) {
+            String token = authHeader.substring(7);
+            if (jwtUtil.validateToken(token)) {
+                return jwtUtil.getUserIdFromToken(token);
+            }
+        }
+        return null;
     }
 }
