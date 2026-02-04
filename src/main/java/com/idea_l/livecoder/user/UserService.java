@@ -110,6 +110,7 @@ public class UserService {
         return LoginResponse.success(user.getUserId(), user.getUsername(), user.getNickname(), token);
     }
 
+
     public User getCurrentUser() {
         Authentication authentication =
                 SecurityContextHolder.getContext().getAuthentication();
@@ -125,5 +126,52 @@ public class UserService {
 
         return userRepository.findById(userId)
                 .orElseThrow(() -> new RuntimeException("유저 없음"));
+    }
+}
+    public void changePassword(Long userId, PasswordChangeRequest request) {
+        User user = userRepository.findById(userId)
+                .orElseThrow(() -> new IllegalArgumentException("사용자를 찾을 수 없습니다"));
+
+        if (!passwordEncoder.matches(request.getCurrentPassword(), user.getPassword())) {
+            throw new IllegalArgumentException("현재 비밀번호가 일치하지 않습니다");
+        }
+
+        user.setPassword(passwordEncoder.encode(request.getNewPassword()));
+        userRepository.save(user);
+    }
+
+    public void changeEmail(Long userId, EmailChangeRequest request) {
+        User user = userRepository.findById(userId)
+                .orElseThrow(() -> new IllegalArgumentException("사용자를 찾을 수 없습니다"));
+
+        if (!passwordEncoder.matches(request.getPassword(), user.getPassword())) {
+            throw new IllegalArgumentException("비밀번호가 일치하지 않습니다");
+        }
+
+        if (userRepository.existsByEmail(request.getNewEmail())) {
+            throw new IllegalArgumentException("이미 사용중인 이메일입니다");
+        }
+
+        user.setEmail(request.getNewEmail());
+        userRepository.save(user);
+    }
+
+    public void updateSolvedVisibility(Long userId, SolvedVisibilityRequest request) {
+        User user = userRepository.findById(userId)
+                .orElseThrow(() -> new IllegalArgumentException("사용자를 찾을 수 없습니다"));
+
+        user.setIsSolvedPublic(request.getIsSolvedPublic());
+        userRepository.save(user);
+    }
+
+    public void deleteUserWithPasswordConfirm(Long userId, String password) {
+        User user = userRepository.findById(userId)
+                .orElseThrow(() -> new IllegalArgumentException("사용자를 찾을 수 없습니다"));
+
+        if (!passwordEncoder.matches(password, user.getPassword())) {
+            throw new IllegalArgumentException("비밀번호가 일치하지 않습니다");
+        }
+
+        userRepository.deleteById(userId);
     }
 }
