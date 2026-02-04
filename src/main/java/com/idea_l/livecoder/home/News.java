@@ -1,4 +1,4 @@
-package com.idea_l.livecoder.news;
+package com.idea_l.livecoder.home;
 
 import jakarta.persistence.*;
 import lombok.*;
@@ -25,5 +25,9 @@ public class News {
 
     @Column(name = "published_at")
     private LocalDateTime publishedAt;
+    //뉴스 null 방지
+    @Column(name = "created_at", nullable = false, updatable = false, insertable = false)
+    private LocalDateTime createdAt;
+
 
 }
