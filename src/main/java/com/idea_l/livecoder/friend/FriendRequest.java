@@ -28,7 +28,6 @@ public class FriendRequest {
     @JoinColumn(name = "receiver_id", nullable = false)
     private User receiver;
 
-    @Enumerated(EnumType.STRING)
     @Column(name = "status")
     private RequestStatus status = RequestStatus.PENDING;
 
