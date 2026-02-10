@@ -4,27 +4,25 @@ import java.io.Serializable;
 import java.util.Objects;
 
 public class CollabMemberId implements Serializable {
-    private Long collabTeam;
-    private Long user;
+    private Long collabId;
+    private Long userId;
 
     public CollabMemberId() {}
 
-    public CollabMemberId(Long collabTeam, Long user) {
-        this.collabTeam = collabTeam;
-        this.user = user;
+    public CollabMemberId(Long collabId, Long userId) {
+        this.collabId = collabId;
+        this.userId = userId;
     }
 
     @Override
     public boolean equals(Object o) {
         if (this == o) return true;
-        if (o == null || getClass() != o.getClass()) return false;
-        CollabMemberId that = (CollabMemberId) o;
-        return Objects.equals(collabTeam, that.collabTeam) && Objects.equals(user, that.user);
+        if (!(o instanceof CollabMemberId that)) return false;
+        return Objects.equals(collabId, that.collabId) && Objects.equals(userId, that.userId);
     }
 
     @Override
     public int hashCode() {
-        return Objects.hash(collabTeam, user);
+        return Objects.hash(collabId, userId);
     }
-
 }

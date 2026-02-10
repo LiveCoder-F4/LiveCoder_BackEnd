@@ -1,20 +1,20 @@
 package com.idea_l.livecoder.collab;
 
 import com.idea_l.livecoder.user.User;
-import com.idea_l.livecoder.common.Language;
 import jakarta.persistence.*;
 import lombok.*;
 import org.hibernate.annotations.CreationTimestamp;
+
 import java.time.LocalDateTime;
 
 @Setter
 @Getter
-@ToString
 @NoArgsConstructor
 @AllArgsConstructor
 @Entity
 @Table(name = "collab_code_replies")
 public class CollabCodeReply {
+
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     @Column(name = "reply_id")
@@ -22,7 +22,7 @@ public class CollabCodeReply {
 
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "collab_id", nullable = false)
-    private CollabTeam collabTeam;
+    private CollabTeam team;
 
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "author_id", nullable = false)
@@ -31,9 +31,8 @@ public class CollabCodeReply {
     @Column(name = "message", nullable = false, columnDefinition = "TEXT")
     private String message;
 
-    @Enumerated(EnumType.STRING)
     @Column(name = "language", nullable = false)
-    private Language language;
+    private String language;
 
     @Column(name = "code", nullable = false, columnDefinition = "TEXT")
     private String code;
@@ -44,5 +43,4 @@ public class CollabCodeReply {
     @CreationTimestamp
     @Column(name = "created_at", nullable = false)
     private LocalDateTime createdAt;
-
 }
