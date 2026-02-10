@@ -127,7 +127,7 @@ public class UserService {
         return userRepository.findById(userId)
                 .orElseThrow(() -> new RuntimeException("유저 없음"));
     }
-}
+
     public void changePassword(Long userId, PasswordChangeRequest request) {
         User user = userRepository.findById(userId)
                 .orElseThrow(() -> new IllegalArgumentException("사용자를 찾을 수 없습니다"));
