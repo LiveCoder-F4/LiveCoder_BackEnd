@@ -30,14 +30,17 @@ public class Submissions {
 
     private String code;
 
+    private String language;
+
     private boolean correct;
 
     private LocalDateTime submittedAt;
 
-    public Submissions(User user, Problems problems, String code, boolean correct){
+    public Submissions(User user, Problems problems, String code, String language, boolean correct) {
         this.user = user;
         this.problems = problems;
         this.code = code;
+        this.language = language;
         this.correct = correct;
 //        this.submittedAt = submittedAt;
     }

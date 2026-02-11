@@ -10,19 +10,24 @@ import java.util.concurrent.TimeUnit;
 @Service
 public class JavaJudgeService {
 
-    public String judge(String code, String input) throws Exception {
+    public JudgeResult judge(String code, String input, int memoryLimitMB) throws Exception {
 
         Path workDir = Files.createTempDirectory("java-judge");
 
         Files.writeString(workDir.resolve("Main.java"), code);
 
+        // 메모리 제한 설정 (Docker --memory 옵션 사용)
+        String memoryLimit = memoryLimitMB + "m";
+
         ProcessBuilder pb = new ProcessBuilder(
                 "docker", "run", "--rm",
                 "-i",
+                "--memory", memoryLimit, // 메모리 제한 추가
+                "--memory-swap", memoryLimit, // 스왑 메모리도 동일하게 제한하여 하드 리미트 설정
                 "-v", workDir.toAbsolutePath() + ":/app",
                 "java-judge",
                 "sh", "-c",
-                "cd /app && javac Main.java && java Main"
+                "cd /app && javac Main.java && java -Xmx" + memoryLimit + " Main" // JVM 힙 메모리도 제한
         );
 
 
@@ -46,12 +51,43 @@ public class JavaJudgeService {
             output.append(line);
         }
 
+        // 에러 출력 읽기 (메모리 초과 시 에러 메시지 확인용)
+        BufferedReader errorReader =
+                new BufferedReader(new InputStreamReader(process.getErrorStream()));
+        StringBuilder errorOutput = new StringBuilder();
+        while ((line = errorReader.readLine()) != null) {
+            errorOutput.append(line);
+        }
+
+
         boolean finished = process.waitFor(2, TimeUnit.SECONDS);
         if (!finished) {
             process.destroyForcibly();
-            throw new RuntimeException("Time Limit Exceeded");
+            return new JudgeResult("", false, "Time Limit Exceeded");
         }
 
-        return output.toString();
+        int exitCode = process.exitValue();
+        if (exitCode != 0) {
+            // 종료 코드가 0이 아니면 런타임 에러 또는 메모리 초과 가능성
+            // Docker가 OOM으로 죽이면 exit code 137
+            if (exitCode == 137) {
+                return new JudgeResult("", false, "Memory Limit Exceeded");
+            }
+            return new JudgeResult("", false, "Runtime Error: " + errorOutput.toString());
+        }
+
+        return new JudgeResult(output.toString(), true, null);
+    }
+
+    public static class JudgeResult {
+        public String output;
+        public boolean success;
+        public String error;
+
+        public JudgeResult(String output, boolean success, String error) {
+            this.output = output;
+            this.success = success;
+            this.error = error;
+        }
     }
 }

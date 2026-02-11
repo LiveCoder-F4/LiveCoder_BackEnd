@@ -29,18 +29,19 @@ public class SubmissionService {
     }
 
     @Transactional
-    public boolean submit(Long problemId, String code) throws Exception {
+    public boolean submit(Long problemId, String code, String language) throws Exception {
 
         User user = userService.getCurrentUser(); // 🔥 여기서 user_id 자동
-        Problems problems = problemService.getOne(problemId);
+        Problems problems = problemService.getEntity(problemId);
 
         boolean correct =
-                problemJudgeService.judgeProblem(problems, code);
+                problemJudgeService.judgeProblem(problems, code, language);
 
         Submissions submission = new Submissions(
                 user,
                 problems,
                 code,
+                language,
                 correct
         );
 

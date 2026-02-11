@@ -28,9 +28,9 @@ public class ProblemController{
         return problemService.getAll();
     }
 
-    @GetMapping("/{id}")
-    public Problems getOne(@PathVariable Long id) {
-        return problemService.getOne(id);
+    @GetMapping("/{problem_id}")
+    public ProblemResponse getOne(@PathVariable Long problem_id) {
+        return problemService.getOne(problem_id);
     }
 
     @PutMapping("/{problem_id}")
@@ -50,7 +50,7 @@ public class ProblemController{
     ) throws Exception {
 
         boolean correct =
-                submissionService.submit(problem_id, request.getCode());
+                submissionService.submit(problem_id, request.getCode(), request.getLanguage());
 
         return ResponseEntity.ok(
                 correct ? "CORRECT" : "WRONG"

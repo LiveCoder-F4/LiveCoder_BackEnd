@@ -1,10 +1,6 @@
 package com.idea_l.livecoder.user;
 
-import com.idea_l.livecoder.user.LoginRequest;
-import com.idea_l.livecoder.user.LoginResponse;
-import com.idea_l.livecoder.user.RegisterRequest;
-import com.idea_l.livecoder.user.User;
-import com.idea_l.livecoder.user.UserRepository;
+
 import com.idea_l.livecoder.common.JwtUtil;
 import jakarta.transaction.Transactional;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -127,7 +123,7 @@ public class UserService {
         return userRepository.findById(userId)
                 .orElseThrow(() -> new RuntimeException("유저 없음"));
     }
-}
+
     public void changePassword(Long userId, PasswordChangeRequest request) {
         User user = userRepository.findById(userId)
                 .orElseThrow(() -> new IllegalArgumentException("사용자를 찾을 수 없습니다"));
