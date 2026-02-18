@@ -111,17 +111,13 @@ public class UserService {
         Authentication authentication =
                 SecurityContextHolder.getContext().getAuthentication();
 
-        if (authentication == null || !authentication.isAuthenticated()) {
-            throw new RuntimeException("로그인 필요");
+        if (authentication == null || !authentication.isAuthenticated() || "anonymousUser".equals(authentication.getPrincipal())) {
+            return null;
         }
 
         String username = authentication.getPrincipal().toString();
-        User user = userRepository.findByUsername(username)
-                .orElseThrow();
-        Long userId = user.getUserId();
-
-        return userRepository.findById(userId)
-                .orElseThrow(() -> new RuntimeException("유저 없음"));
+        return userRepository.findByUsername(username)
+                .orElse(null);
     }
 
     public void changePassword(Long userId, PasswordChangeRequest request) {

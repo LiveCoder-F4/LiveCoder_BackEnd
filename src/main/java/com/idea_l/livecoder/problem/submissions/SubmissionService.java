@@ -31,7 +31,10 @@ public class SubmissionService {
     @Transactional
     public boolean submit(Long problemId, String code, String language) throws Exception {
 
-        User user = userService.getCurrentUser(); // 🔥 여기서 user_id 자동
+        User user = userService.getCurrentUser();
+        if (user == null) {
+            throw new RuntimeException("로그인이 필요합니다.");
+        }
         Problems problems = problemService.getEntity(problemId);
 
         boolean correct =
