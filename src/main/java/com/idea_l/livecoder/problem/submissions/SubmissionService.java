@@ -29,7 +29,7 @@ public class SubmissionService {
     }
 
     @Transactional
-    public boolean submit(Long problemId, String code, String language) throws Exception {
+    public ProblemJudgeService.JudgeResult submit(Long problemId, String code, String language) throws Exception {
 
         User user = userService.getCurrentUser();
         if (user == null) {
@@ -37,7 +37,7 @@ public class SubmissionService {
         }
         Problems problems = problemService.getEntity(problemId);
 
-        boolean correct =
+        ProblemJudgeService.JudgeResult judgeResult =
                 problemJudgeService.judgeProblem(problems, code, language);
 
         Submissions submission = new Submissions(
@@ -45,11 +45,11 @@ public class SubmissionService {
                 problems,
                 code,
                 language,
-                correct
+                judgeResult.isCorrect()
         );
 
         submissionRepository.save(submission);
 
-        return correct;
+        return judgeResult;
     }
 }

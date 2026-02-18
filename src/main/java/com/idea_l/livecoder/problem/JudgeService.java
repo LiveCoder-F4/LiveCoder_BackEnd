@@ -8,7 +8,7 @@ import org.springframework.stereotype.Service;
 
 @Service
 @RequiredArgsConstructor
-public class ProblemJudgeService {
+public class JudgeService {
 
     private final JavaJudgeService javaJudgeService;
 

@@ -49,12 +49,14 @@ public class ProblemController{
             @RequestBody CodeSubmitRequest request
     ) throws Exception {
 
-        boolean correct =
+        ProblemJudgeService.JudgeResult result =
                 submissionService.submit(problem_id, request.getCode(), request.getLanguage());
 
-        return ResponseEntity.ok(
-                correct ? "CORRECT" : "WRONG"
-        );
+        if (result.isCorrect()) {
+            return ResponseEntity.ok("CORRECT");
+        } else {
+            return ResponseEntity.ok(result.getMessage());
+        }
     }
 
 }

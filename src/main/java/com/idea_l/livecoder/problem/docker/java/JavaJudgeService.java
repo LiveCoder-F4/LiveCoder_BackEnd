@@ -68,12 +68,12 @@ public class JavaJudgeService {
 
         int exitCode = process.exitValue();
         if (exitCode != 0) {
-            // 종료 코드가 0이 아니면 런타임 에러 또는 메모리 초과 가능성
-            // Docker가 OOM으로 죽이면 exit code 137
-            if (exitCode == 137) {
+            String errorString = errorOutput.toString();
+            // Docker OOM Killer (exit code 137) 또는 JVM OutOfMemoryError 확인
+            if (exitCode == 137 || errorString.contains("OutOfMemoryError")) {
                 return new JudgeResult("", false, "Memory Limit Exceeded");
             }
-            return new JudgeResult("", false, "Runtime Error: " + errorOutput.toString());
+            return new JudgeResult("", false, "Runtime Error"/* + errorString*/);
         }
 
         return new JudgeResult(output.toString(), true, null);
