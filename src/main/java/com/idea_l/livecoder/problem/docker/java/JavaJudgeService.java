@@ -6,6 +6,8 @@ import java.io.*;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.concurrent.TimeUnit;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 
 @Service
 public class JavaJudgeService {
@@ -16,24 +18,24 @@ public class JavaJudgeService {
 
         Files.writeString(workDir.resolve("Main.java"), code);
 
-        // 메모리 제한 설정 (Docker --memory 옵션 사용)
         String memoryLimit = memoryLimitMB + "m";
 
+        // time 명령어를 사용하여 메모리(KB)와 시간(초) 측정
+        // 포맷: MEMORY:최대메모리(KB) TIME:경과시간(초)
         ProcessBuilder pb = new ProcessBuilder(
                 "docker", "run", "--rm",
                 "-i",
-                "--memory", memoryLimit, // 메모리 제한 추가
-                "--memory-swap", memoryLimit, // 스왑 메모리도 동일하게 제한하여 하드 리미트 설정
+                "--memory", memoryLimit,
+                "--memory-swap", memoryLimit,
                 "-v", workDir.toAbsolutePath() + ":/app",
                 "java-judge",
                 "sh", "-c",
-                "cd /app && javac Main.java && java -Xmx" + memoryLimit + " Main" // JVM 힙 메모리도 제한
+                "cd /app && javac Main.java && /usr/bin/time -f \"MEMORY:%M TIME:%e\" java -Xmx" + memoryLimit + " Main"
         );
 
 
         Process process = pb.start();
 
-        // 입력 전달
         try (BufferedWriter writer =
                      new BufferedWriter(new OutputStreamWriter(process.getOutputStream()))) {
             writer.write(input);
@@ -41,7 +43,6 @@ public class JavaJudgeService {
             writer.flush();
         }
 
-        // 출력 읽기
         BufferedReader reader =
                 new BufferedReader(new InputStreamReader(process.getInputStream()));
 
@@ -51,43 +52,68 @@ public class JavaJudgeService {
             output.append(line);
         }
 
-        // 에러 출력 읽기 (메모리 초과 시 에러 메시지 확인용)
         BufferedReader errorReader =
                 new BufferedReader(new InputStreamReader(process.getErrorStream()));
         StringBuilder errorOutput = new StringBuilder();
+        
+        long memoryUsage = 0;
+        double executionTime = 0.0;
+
         while ((line = errorReader.readLine()) != null) {
-            errorOutput.append(line);
+            if (line.contains("MEMORY:") && line.contains("TIME:")) {
+                try {
+                    Pattern pattern = Pattern.compile("MEMORY:(\\d+) TIME:([\\d.]+)");
+                    Matcher matcher = pattern.matcher(line);
+                    if (matcher.find()) {
+                        memoryUsage = Long.parseLong(matcher.group(1));
+                        executionTime = Double.parseDouble(matcher.group(2));
+                    }
+                } catch (Exception e) {
+                    // ignore
+                }
+            } else {
+                errorOutput.append(line).append("\n");
+            }
         }
 
 
         boolean finished = process.waitFor(2, TimeUnit.SECONDS);
         if (!finished) {
             process.destroyForcibly();
-            return new JudgeResult("", false, "Time Limit Exceeded");
+            return new JudgeResult("", false, "Time Limit Exceeded", 0, 0);
         }
 
         int exitCode = process.exitValue();
         if (exitCode != 0) {
             String errorString = errorOutput.toString();
-            // Docker OOM Killer (exit code 137) 또는 JVM OutOfMemoryError 확인
             if (exitCode == 137 || errorString.contains("OutOfMemoryError")) {
-                return new JudgeResult("", false, "Memory Limit Exceeded");
+                return new JudgeResult("", false, "Memory Limit Exceeded", memoryUsage, (long)(executionTime * 1000));
             }
-            return new JudgeResult("", false, "Runtime Error"/* + errorString*/);
+            
+            // 컴파일 에러 확인
+            if (errorString.contains("error:") && errorString.contains("Main.java")) {
+                 return new JudgeResult("", false, "Compile Error: " + errorString, memoryUsage, (long)(executionTime * 1000));
+            }
+
+            return new JudgeResult("", false, "Runtime Error: " + errorString, memoryUsage, (long)(executionTime * 1000));
         }
 
-        return new JudgeResult(output.toString(), true, null);
+        return new JudgeResult(output.toString(), true, null, memoryUsage, (long)(executionTime * 1000));
     }
 
     public static class JudgeResult {
         public String output;
         public boolean success;
         public String error;
+        public long memoryUsage; // KB
+        public long executionTime; // ms
 
-        public JudgeResult(String output, boolean success, String error) {
+        public JudgeResult(String output, boolean success, String error, long memoryUsage, long executionTime) {
             this.output = output;
             this.success = success;
             this.error = error;
+            this.memoryUsage = memoryUsage;
+            this.executionTime = executionTime;
         }
     }
 }
