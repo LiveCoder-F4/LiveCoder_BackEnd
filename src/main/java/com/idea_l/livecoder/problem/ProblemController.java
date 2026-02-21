@@ -2,6 +2,7 @@ package com.idea_l.livecoder.problem;
 
 import java.util.List;
 import com.idea_l.livecoder.problem.ProblemDTO.*;
+import com.idea_l.livecoder.problem.submissions.SubmissionResponse;
 import com.idea_l.livecoder.problem.submissions.SubmissionService;
 import jakarta.servlet.http.HttpSession;
 import lombok.AllArgsConstructor;
@@ -94,5 +95,10 @@ public class ProblemController {
 
         // 상세 결과 반환
         return ResponseEntity.ok(info.getResult());
+    }
+
+    @GetMapping("/submissions/{submission_id}")
+    public ResponseEntity<SubmissionResponse> getSubmission(@PathVariable Long submission_id) {
+        return ResponseEntity.ok(submissionService.getSubmission(submission_id));
     }
 }

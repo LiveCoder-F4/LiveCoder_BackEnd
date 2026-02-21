@@ -14,6 +14,9 @@ public record PostCreateRequest(
         @NotBlank(message = "내용은 필수입니다")
         String content,
 
+        @Schema(description = "카테고리 (NOTICE, QUESTION, INFO)", example = "INFO")
+        String category,
+
         @Schema(description = "작성자 사용자 ID", example = "1")
         @NotNull(message = "사용자 ID는 필수입니다")
         Long userId

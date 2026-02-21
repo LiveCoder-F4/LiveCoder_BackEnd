@@ -2,6 +2,7 @@ package com.idea_l.livecoder.post;
 
 import com.idea_l.livecoder.user.User;
 import com.idea_l.livecoder.user.UserRepository;
+import com.idea_l.livecoder.user.UserService;
 import org.springframework.data.domain.*;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -16,17 +17,20 @@ public class PostService {
     private final CommentRepository commentRepository;
     private final PostLikeRepository postLikeRepository;
     private final UserRepository userRepository;
+    private final UserService userService;
 
     public PostService(
             PostRepository postRepository,
             CommentRepository commentRepository,
             PostLikeRepository postLikeRepository,
-            UserRepository userRepository
+            UserRepository userRepository,
+            UserService userService
     ) {
         this.postRepository = postRepository;
         this.commentRepository = commentRepository;
         this.postLikeRepository = postLikeRepository;
         this.userRepository = userRepository;
+        this.userService = userService;
     }
 
     // =========================================================
@@ -61,19 +65,62 @@ public class PostService {
         return new CommunityPostsResponse(notices, items, pageInfo);
     }
 
+    @Transactional(readOnly = true)
+    public CommunitySummaryResponse getCommunitySummary() {
+        List<PostListResponse> notices = postRepository
+                .findTop5ByCategoryOrderByCreatedAtDesc("NOTICE")
+                .stream()
+                .map(PostListResponse::from)
+                .toList();
+
+        List<PostListResponse> questions = postRepository
+                .findTop5ByCategoryOrderByCreatedAtDesc("QUESTION")
+                .stream()
+                .map(PostListResponse::from)
+                .toList();
+
+        List<PostListResponse> info = postRepository
+                .findTop5ByCategoryOrderByCreatedAtDesc("INFO")
+                .stream()
+                .map(PostListResponse::from)
+                .toList();
+
+        return new CommunitySummaryResponse(notices, questions, info);
+    }
+
+    @Transactional(readOnly = true)
+    public PostListPageResponse getPostsByCategory(String category, int page, int size) {
+        Pageable pageable = PageRequest.of(page, size, Sort.by(Sort.Direction.DESC, "createdAt"));
+        Page<Post> postPage = postRepository.findByCategory(category, pageable);
+
+        List<PostListResponse> items = postPage.getContent()
+                .stream()
+                .map(PostListResponse::from)
+                .toList();
+
+        PostPageInfo pageInfo = new PostPageInfo(
+                postPage.getNumber(),
+                postPage.getSize(),
+                postPage.getTotalElements(),
+                postPage.getTotalPages()
+        );
+
+        return new PostListPageResponse(items, pageInfo);
+    }
+
     // =========================================================
-    // 2) 게시글 상세 (+댓글 트리) + 조회수 증가
+    // 2) 게시글 상세 (+댓글 트리)
     // =========================================================
-    @Transactional
+    @Transactional(readOnly = true)
     public PostDetailResponse getPostDetail(Long postId) {
         Post post = postRepository.findById(postId)
                 .orElseThrow(() -> new IllegalArgumentException("존재하지 않는 게시글입니다. id=" + postId));
 
-        // ✅ 조회수 증가
-        // post.setViewCount(post.getViewCount() + 1); 오류 문제가 있을 수 있음
-        //null이 들어가면 아마 터짐 0으로 보정
-        Integer vc= post.getViewCount();
-        post.setViewCount((vc==null ? 0 : vc)+1);
+        User currentUser = userService.getCurrentUser();
+        boolean isLiked = false;
+        if (currentUser != null) {
+            isLiked = postLikeRepository.existsByPostPostIdAndUserUserId(postId, currentUser.getUserId());
+        }
 
         List<Comment> comments = commentRepository.findByPostPostIdOrderByCreatedAtAsc(postId);
         List<CommentResponse> commentTree = buildCommentTree(comments);
@@ -87,9 +134,18 @@ public class PostService {
                 post.getViewCount(),
                 post.getLikeCount(),
                 post.getCommentCount(),
+                isLiked,
                 post.getCreatedAt(),
                 commentTree
         );
+    }
+
+    @Transactional
+    public void increaseViewCount(Long postId) {
+        Post post = postRepository.findById(postId)
+                .orElseThrow(() -> new IllegalArgumentException("존재하지 않는 게시글입니다. id=" + postId));
+        Integer vc = post.getViewCount();
+        post.setViewCount((vc == null ? 0 : vc) + 1);
     }
 
     // ✅ 안전한 트리 빌드 (record 직접 add 금지)
@@ -159,22 +215,21 @@ public class PostService {
     }
 
     // =========================================================
-    // 3) 댓글/대댓글 작성
+    // 3) 댓글/대댓글 CRUD
     // =========================================================
     @Transactional
     public Long createComment(Long postId, CommentCreateRequest request) {
         Post post = postRepository.findById(postId)
                 .orElseThrow(() -> new IllegalArgumentException("존재하지 않는 게시글입니다. id=" + postId));
 
-        User user = userRepository.findById(request.userId())
-                .orElseThrow(() -> new IllegalArgumentException("존재하지 않는 사용자입니다. id=" + request.userId()));
+        User user = userService.getCurrentUser();
+        if (user == null) throw new IllegalArgumentException("로그인이 필요합니다.");
 
         Comment parent = null;
         if (request.parentId() != null) {
             parent = commentRepository.findById(request.parentId())
                     .orElseThrow(() -> new IllegalArgumentException("존재하지 않는 부모 댓글입니다. id=" + request.parentId()));
 
-            // ✅ 다른 게시글 댓글에 대댓글 달기 방지
             if (!Objects.equals(parent.getPost().getPostId(), postId)) {
                 throw new IllegalArgumentException("부모 댓글이 해당 게시글에 속하지 않습니다.");
             }
@@ -188,22 +243,25 @@ public class PostService {
 
         Comment saved = commentRepository.save(comment);
 
-        // ✅ 댓글 수 증가
-        // post.setCommentCount(post.getCommentCount() + 1); 오류 가능성
-        //마찬가지 null
-
-        Integer cc=post.getCommentCount();
-        post.setCommentCount((cc == null ? 0 : cc)+1);
-
+        Integer cc = post.getCommentCount();
+        post.setCommentCount((cc == null ? 0 : cc) + 1);
 
         return saved.getCommentId();
     }
 
-    // =========================================================
-    // 4) 댓글 삭제 (대댓글 포함 삭제 + commentCount 정확히 차감)
-    //    - orphanRemoval=true 로 실제 삭제는 JPA가 처리
-    //    - 삭제 개수 계산만 안전하게 (flat 목록 기반)
-    // =========================================================
+    @Transactional
+    public void updateComment(Long commentId, String content) {
+        Comment comment = commentRepository.findById(commentId)
+                .orElseThrow(() -> new IllegalArgumentException("존재하지 않는 댓글입니다. id=" + commentId));
+
+        User user = userService.getCurrentUser();
+        if (user == null || !Objects.equals(comment.getUser().getUserId(), user.getUserId())) {
+            throw new IllegalArgumentException("본인의 댓글만 수정할 수 있습니다.");
+        }
+
+        comment.setContent(content);
+    }
+
     @Transactional
     public void deleteComment(Long postId, Long commentId) {
         Post post = postRepository.findById(postId)
@@ -212,17 +270,19 @@ public class PostService {
         Comment target = commentRepository.findById(commentId)
                 .orElseThrow(() -> new IllegalArgumentException("존재하지 않는 댓글입니다. id=" + commentId));
 
+        User user = userService.getCurrentUser();
+        if (user == null || !Objects.equals(target.getUser().getUserId(), user.getUserId())) {
+            throw new IllegalArgumentException("본인의 댓글만 삭제할 수 있습니다.");
+        }
+
         if (!Objects.equals(target.getPost().getPostId(), postId)) {
             throw new IllegalArgumentException("해당 게시글의 댓글이 아닙니다.");
         }
 
-        // ✅ 삭제 대상 id들(부모+자손) 구하기
         List<Long> deleteIds = collectDescendantIdsInclusive(postId, commentId);
-
-        // ✅ 자식부터 삭제되게 역순 삭제 (FK 안전)
         Collections.reverse(deleteIds);
         commentRepository.deleteAllById(deleteIds);
-        //count null 오류 방지 
+
         Integer cc = post.getCommentCount();
         int safeCc = (cc == null) ? 0 : cc;
         post.setCommentCount(Math.max(0, safeCc - deleteIds.size()));
@@ -258,37 +318,38 @@ public class PostService {
     // 5) 좋아요 / 좋아요 취소
     // =========================================================
     @Transactional
-    public void likePost(Long postId, Long userId) {
-        if (postLikeRepository.existsByPostPostIdAndUserUserId(postId, userId)) return;
+    public void likePost(Long postId) {
+        User user = userService.getCurrentUser();
+        if (user == null) throw new IllegalArgumentException("로그인이 필요합니다.");
+
+        if (postLikeRepository.existsByPostPostIdAndUserUserId(postId, user.getUserId())) return;
 
         Post post = postRepository.findById(postId)
                 .orElseThrow(() -> new IllegalArgumentException("존재하지 않는 게시글입니다. id=" + postId));
-
-        User user = userRepository.findById(userId)
-                .orElseThrow(() -> new IllegalArgumentException("존재하지 않는 사용자입니다. id=" + userId));
 
         PostLike like = new PostLike();
         like.setPost(post);
         like.setUser(user);
         postLikeRepository.save(like);
 
-        // post.setLikeCount(post.getLikeCount() + 1); null 오류 배제
-        Integer lc= post.getLikeCount();
-        post.setLikeCount((lc == null ? 0 : lc)+1);
+        Integer lc = post.getLikeCount();
+        post.setLikeCount((lc == null ? 0 : lc) + 1);
     }
 
     @Transactional
-    public void unlikePost(Long postId, Long userId) {
-        if (!postLikeRepository.existsByPostPostIdAndUserUserId(postId, userId)) return;
+    public void unlikePost(Long postId) {
+        User user = userService.getCurrentUser();
+        if (user == null) throw new IllegalArgumentException("로그인이 필요합니다.");
+
+        if (!postLikeRepository.existsByPostPostIdAndUserUserId(postId, user.getUserId())) return;
 
         Post post = postRepository.findById(postId)
                 .orElseThrow(() -> new IllegalArgumentException("존재하지 않는 게시글입니다. id=" + postId));
 
-        postLikeRepository.deleteByPostPostIdAndUserUserId(postId, userId);
+        postLikeRepository.deleteByPostPostIdAndUserUserId(postId, user.getUserId());
 
-        // post.setLikeCount(Math.max(0, post.getLikeCount() - 1)); null 동일
         Integer lc = post.getLikeCount();
-        post.setLikeCount(Math.max(0,(lc == null ? 0 : lc)-1));
+        post.setLikeCount(Math.max(0, (lc == null ? 0 : lc) - 1));
     }
 
     // =========================================================
@@ -303,6 +364,7 @@ public class PostService {
         post.setTitle(request.title());
         post.setContent(request.content());
         post.setUser(user);
+        post.setCategory(request.category() != null ? request.category() : "INFO"); // ✅ 카테고리 추가
         post.setIsNotice(false); // ✅ 일반 작성은 무조건 일반글
 
         return postRepository.save(post).getPostId();
@@ -313,17 +375,32 @@ public class PostService {
         Post post = postRepository.findById(postId)
                 .orElseThrow(() -> new IllegalArgumentException("존재하지 않는 게시글입니다. id=" + postId));
 
+        User user = userService.getCurrentUser();
+        if (user == null || !Objects.equals(post.getUser().getUserId(), user.getUserId())) {
+            throw new IllegalArgumentException("본인의 게시글만 수정할 수 있습니다.");
+        }
+
         post.setTitle(request.title());
         post.setContent(request.content());
+
+        // 공지글이 아닐 때만 카테고리 변경 허용 (보안/데이터 정합성)
+        if (!post.getIsNotice() && request.category() != null) {
+            post.setCategory(request.category());
+        }
 
         return PostResponse.from(post);
     }
 
     @Transactional
     public void deletePost(Long postId) {
-        if (!postRepository.existsById(postId)) {
-            throw new IllegalArgumentException("존재하지 않는 게시글입니다. id=" + postId);
+        Post post = postRepository.findById(postId)
+                .orElseThrow(() -> new IllegalArgumentException("존재하지 않는 게시글입니다. id=" + postId));
+
+        User user = userService.getCurrentUser();
+        if (user == null || !Objects.equals(post.getUser().getUserId(), user.getUserId())) {
+            throw new IllegalArgumentException("본인의 게시글만 삭제할 수 있습니다.");
         }
+
         //충돌 방지 댓글 먼저 삭제
         commentRepository.deleteByPostPostId(postId);
         //충돌 방지 게시글 좋아요 먼저 삭제
@@ -344,6 +421,7 @@ public class PostService {
         post.setTitle(request.title());
         post.setContent(request.content());
         post.setUser(admin);
+        post.setCategory("NOTICE"); // ✅ 카테고리 고정
         post.setIsNotice(true); // ✅ 여기서만 공지 생성
 
         return postRepository.save(post).getPostId();

@@ -46,4 +46,22 @@ public class SubmissionService {
 
         submissionRepository.save(submission);
     }
+
+    @Transactional(readOnly = true)
+    public SubmissionResponse getSubmission(Long submissionId) {
+        Submissions s = submissionRepository.findById(submissionId)
+                .orElseThrow(() -> new RuntimeException("해당 제출 내역을 찾을 수 없습니다."));
+
+        return new SubmissionResponse(
+                s.getSubmission_id(),
+                s.getProblems().getProblem_id(),
+                s.getProblems().getTitle(),
+                s.getCode(),
+                s.getLanguage(),
+                s.getStatus(),
+                s.getExecutionTime(),
+                s.getMemoryUsage(),
+                s.getSubmittedAt()
+        );
+    }
 }

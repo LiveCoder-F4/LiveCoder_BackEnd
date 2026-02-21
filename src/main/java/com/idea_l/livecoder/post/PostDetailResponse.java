@@ -12,6 +12,7 @@ public record PostDetailResponse(
         Integer viewCount,
         Integer likeCount,
         Integer commentCount,
+        Boolean isLiked,
         LocalDateTime createdAt,
         List<CommentResponse> comments
 ) {}

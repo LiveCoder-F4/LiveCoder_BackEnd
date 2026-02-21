@@ -18,4 +18,12 @@ public interface PostRepository extends JpaRepository<Post, Long> {
     // ✅ 공지 3개 (최신순)
     @EntityGraph(attributePaths = {"user"})
     List<Post> findTop3ByIsNoticeTrueOrderByCreatedAtDesc();
+
+    // ✅ 카테고리별 최신글 5개
+    @EntityGraph(attributePaths = {"user"})
+    List<Post> findTop5ByCategoryOrderByCreatedAtDesc(String category);
+
+    // ✅ 카테고리별 페이징 목록
+    @EntityGraph(attributePaths = {"user"})
+    Page<Post> findByCategory(String category, Pageable pageable);
 }

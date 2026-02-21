@@ -30,6 +30,9 @@ public class Post {
     @Column(name = "content", nullable = false, columnDefinition = "TEXT")
     private String content;
 
+    @Column(name = "category", nullable = false, length = 50)
+    private String category = "INFO"; // NOTICE, QUESTION, INFO
+
     @Column(name = "is_notice", nullable = false)
     private Boolean isNotice = false;
 
