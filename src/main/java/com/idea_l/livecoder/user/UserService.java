@@ -1,10 +1,6 @@
 package com.idea_l.livecoder.user;
 
-import com.idea_l.livecoder.user.LoginRequest;
-import com.idea_l.livecoder.user.LoginResponse;
-import com.idea_l.livecoder.user.RegisterRequest;
-import com.idea_l.livecoder.user.User;
-import com.idea_l.livecoder.user.UserRepository;
+
 import com.idea_l.livecoder.common.JwtUtil;
 import jakarta.transaction.Transactional;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -115,17 +111,13 @@ public class UserService {
         Authentication authentication =
                 SecurityContextHolder.getContext().getAuthentication();
 
-        if (authentication == null || !authentication.isAuthenticated()) {
-            throw new RuntimeException("로그인 필요");
+        if (authentication == null || !authentication.isAuthenticated() || "anonymousUser".equals(authentication.getPrincipal())) {
+            return null;
         }
 
         String username = authentication.getPrincipal().toString();
-        User user = userRepository.findByUsername(username)
-                .orElseThrow();
-        Long userId = user.getUserId();
-
-        return userRepository.findById(userId)
-                .orElseThrow(() -> new RuntimeException("유저 없음"));
+        return userRepository.findByUsername(username)
+                .orElse(null);
     }
 
     public void changePassword(Long userId, PasswordChangeRequest request) {
