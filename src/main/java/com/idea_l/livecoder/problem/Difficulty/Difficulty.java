@@ -11,6 +11,7 @@ public class Difficulty {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long difficulty_id;
 
+    @Column(name="difficulty")
     private String name;
 
 }
