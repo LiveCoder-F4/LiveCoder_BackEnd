@@ -16,6 +16,8 @@ public class PostService {
     private final PostRepository postRepository;
     private final CommentRepository commentRepository;
     private final PostLikeRepository postLikeRepository;
+    private final PostAttachmentRepository postAttachmentRepository;
+    private final FileStorageService fileStorageService;
     private final UserRepository userRepository;
     private final UserService userService;
 
@@ -23,12 +25,16 @@ public class PostService {
             PostRepository postRepository,
             CommentRepository commentRepository,
             PostLikeRepository postLikeRepository,
+            PostAttachmentRepository postAttachmentRepository,
+            FileStorageService fileStorageService,
             UserRepository userRepository,
             UserService userService
     ) {
         this.postRepository = postRepository;
         this.commentRepository = commentRepository;
         this.postLikeRepository = postLikeRepository;
+        this.postAttachmentRepository = postAttachmentRepository;
+        this.fileStorageService = fileStorageService;
         this.userRepository = userRepository;
         this.userService = userService;
     }
@@ -108,6 +114,34 @@ public class PostService {
         return new PostListPageResponse(items, pageInfo);
     }
 
+    @Transactional(readOnly = true)
+    public PostListPageResponse searchPosts(String keyword, int page, int size, String sort) {
+        if (keyword == null || keyword.trim().isEmpty()) {
+            throw new IllegalArgumentException("게시글이 존재하지 않습니다");
+        }
+
+        int safePage = Math.max(page, 0);
+        int safeSize = (size <= 0) ? 10 : size;
+        Sort sortSpec = buildSearchSort(sort);
+
+        Pageable pageable = PageRequest.of(safePage, safeSize, sortSpec);
+        Page<Post> postPage = postRepository.findByTitleContainingIgnoreCase(keyword.trim(), pageable);
+
+        List<PostListResponse> items = postPage.getContent()
+                .stream()
+                .map(PostListResponse::from)
+                .toList();
+
+        PostPageInfo pageInfo = new PostPageInfo(
+                postPage.getNumber(),
+                postPage.getSize(),
+                postPage.getTotalElements(),
+                postPage.getTotalPages()
+        );
+
+        return new PostListPageResponse(items, pageInfo);
+    }
+
     // =========================================================
     // 2) 게시글 상세 (+댓글 트리)
     // =========================================================
@@ -125,6 +159,12 @@ public class PostService {
         List<Comment> comments = commentRepository.findByPostPostIdOrderByCreatedAtAsc(postId);
         List<CommentResponse> commentTree = buildCommentTree(comments);
 
+        List<AttachmentResponse> attachments = postAttachmentRepository
+                .findByPostPostIdOrderByCreatedAtAsc(postId)
+                .stream()
+                .map(AttachmentResponse::from)
+                .toList();
+
         return new PostDetailResponse(
                 post.getPostId(),
                 post.getTitle(),
@@ -136,7 +176,8 @@ public class PostService {
                 post.getCommentCount(),
                 isLiked,
                 post.getCreatedAt(),
-                commentTree
+                commentTree,
+                attachments
         );
     }
 
@@ -313,6 +354,22 @@ public class PostService {
         return ids;
     }
 
+    private Sort buildSearchSort(String sort) {
+        if (sort == null) {
+            return Sort.by(Sort.Direction.DESC, "createdAt");
+        }
+
+        String key = sort.trim().toLowerCase();
+        return switch (key) {
+            case "oldest" -> Sort.by(Sort.Direction.ASC, "createdAt");
+            case "views" -> Sort.by(Sort.Direction.DESC, "viewCount").and(Sort.by(Sort.Direction.DESC, "createdAt"));
+            case "likes" -> Sort.by(Sort.Direction.DESC, "likeCount").and(Sort.by(Sort.Direction.DESC, "createdAt"));
+            case "comments" -> Sort.by(Sort.Direction.DESC, "commentCount").and(Sort.by(Sort.Direction.DESC, "createdAt"));
+            case "latest" -> Sort.by(Sort.Direction.DESC, "createdAt");
+            default -> Sort.by(Sort.Direction.DESC, "createdAt");
+        };
+    }
+
 
     // =========================================================
     // 5) 좋아요 / 좋아요 취소
@@ -371,6 +428,33 @@ public class PostService {
     }
 
     @Transactional
+    public Long createPostWithFiles(PostCreateRequest request, java.util.List<org.springframework.web.multipart.MultipartFile> files) {
+        Long postId = createPost(request);
+
+        if (files == null || files.isEmpty()) {
+            return postId;
+        }
+
+        Post post = postRepository.findById(postId)
+                .orElseThrow(() -> new IllegalArgumentException("존재하지 않는 게시글입니다. id=" + postId));
+
+        for (org.springframework.web.multipart.MultipartFile file : files) {
+            if (file == null || file.isEmpty()) continue;
+
+            FileStorageService.StoredFile stored = fileStorageService.store(file);
+            PostAttachment attachment = new PostAttachment();
+            attachment.setPost(post);
+            attachment.setOriginalFilename(stored.originalFilename());
+            attachment.setStoredFilename(stored.storedFilename());
+            attachment.setContentType(stored.contentType());
+            attachment.setFileSize(stored.size());
+            postAttachmentRepository.save(attachment);
+        }
+
+        return postId;
+    }
+
+    @Transactional
     public PostResponse updatePost(Long postId, PostUpdateRequest request) {
         Post post = postRepository.findById(postId)
                 .orElseThrow(() -> new IllegalArgumentException("존재하지 않는 게시글입니다. id=" + postId));
@@ -405,8 +489,42 @@ public class PostService {
         commentRepository.deleteByPostPostId(postId);
         //충돌 방지 게시글 좋아요 먼저 삭제
         postLikeRepository.deleteByPostPostId(postId);
+        //충돌 방지 첨부파일 삭제
+        deleteAttachmentsByPostId(postId);
 
         postRepository.deleteById(postId);
+    }
+
+    @Transactional(readOnly = true)
+    public PostAttachment getAttachment(Long attachmentId) {
+        return postAttachmentRepository.findById(attachmentId)
+                .orElseThrow(() -> new IllegalArgumentException("첨부파일이 존재하지 않습니다. id=" + attachmentId));
+    }
+
+    @Transactional(readOnly = true)
+    public org.springframework.core.io.Resource loadAttachmentResource(Long attachmentId) {
+        PostAttachment attachment = getAttachment(attachmentId);
+        java.nio.file.Path path = fileStorageService.load(attachment.getStoredFilename());
+        try {
+            org.springframework.core.io.Resource resource = new org.springframework.core.io.UrlResource(path.toUri());
+            if (!resource.exists()) {
+                throw new IllegalArgumentException("첨부파일을 찾을 수 없습니다.");
+            }
+            return resource;
+        } catch (Exception e) {
+            throw new IllegalArgumentException("첨부파일을 찾을 수 없습니다.");
+        }
+    }
+
+    private void deleteAttachmentsByPostId(Long postId) {
+        List<PostAttachment> attachments = postAttachmentRepository.findByPostPostIdOrderByCreatedAtAsc(postId);
+        for (PostAttachment attachment : attachments) {
+            try {
+                java.nio.file.Files.deleteIfExists(fileStorageService.load(attachment.getStoredFilename()));
+            } catch (Exception ignored) {
+            }
+        }
+        postAttachmentRepository.deleteByPostPostId(postId);
     }
 
     // =========================================================

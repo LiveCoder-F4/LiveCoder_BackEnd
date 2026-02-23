@@ -26,4 +26,7 @@ public interface PostRepository extends JpaRepository<Post, Long> {
     // ✅ 카테고리별 페이징 목록
     @EntityGraph(attributePaths = {"user"})
     Page<Post> findByCategory(String category, Pageable pageable);
+
+    @EntityGraph(attributePaths = {"user"})
+    Page<Post> findByTitleContainingIgnoreCase(String keyword, Pageable pageable);
 }

@@ -1,9 +1,16 @@
 package com.idea_l.livecoder.post;
 
 import jakarta.validation.Valid;
+import org.springframework.core.io.Resource;
+import org.springframework.http.ContentDisposition;
+import org.springframework.http.HttpHeaders;
+import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
+import org.springframework.web.multipart.MultipartFile;
 
+import java.nio.charset.StandardCharsets;
+import java.util.List;
 import java.util.Map;
 
 @RestController
@@ -11,9 +18,11 @@ import java.util.Map;
 public class PostController {
 
     private final PostService postService;
+    private final PostAttachmentService postAttachmentService;
 
-    public PostController(PostService postService) {
+    public PostController(PostService postService, PostAttachmentService postAttachmentService) {
         this.postService = postService;
+        this.postAttachmentService = postAttachmentService;
     }
 
     // ✅ 커뮤니티 목록: 공지 3개 고정 + 일반글 페이지
@@ -41,10 +50,46 @@ public class PostController {
         return ResponseEntity.ok(PostApiResponse.ok(postService.getPostsByCategory(category, page, size)));
     }
 
+    // 검색기능
+    @GetMapping("/search")
+    public ResponseEntity<PostApiResponse<PostListPageResponse>> searchPosts(
+            @RequestParam String keyword,
+            @RequestParam(defaultValue = "0") int page,
+            @RequestParam(defaultValue = "10") int size,
+            @RequestParam(defaultValue = "latest") String sort
+    ) {
+        return ResponseEntity.ok(PostApiResponse.ok(postService.searchPosts(keyword, page, size, sort)));
+    }
+
     // ✅ 상세(댓글 트리 포함)
     @GetMapping("/{postId}")
     public ResponseEntity<PostApiResponse<PostDetailResponse>> getDetail(@PathVariable Long postId) {
         return ResponseEntity.ok(PostApiResponse.ok(postService.getPostDetail(postId)));
+    }
+
+    @GetMapping("/attachments/{attachmentId}")
+    public ResponseEntity<Resource> downloadAttachment(@PathVariable Long attachmentId) {
+        PostAttachment attachment = postService.getAttachment(attachmentId);
+        Resource resource = postService.loadAttachmentResource(attachmentId);
+
+        String contentType = (attachment.getContentType() == null || attachment.getContentType().isBlank())
+                ? MediaType.APPLICATION_OCTET_STREAM_VALUE
+                : attachment.getContentType();
+
+        ContentDisposition disposition = ContentDisposition.attachment()
+                .filename(attachment.getOriginalFilename(), StandardCharsets.UTF_8)
+                .build();
+
+        return ResponseEntity.ok()
+                .contentType(MediaType.parseMediaType(contentType))
+                .header(HttpHeaders.CONTENT_DISPOSITION, disposition.toString())
+                .body(resource);
+    }
+
+    @DeleteMapping("/attachments/{attachmentId}")
+    public ResponseEntity<PostApiResponse<Map<String, Long>>> deleteAttachment(@PathVariable Long attachmentId) {
+        postAttachmentService.deleteAttachment(attachmentId);
+        return ResponseEntity.ok(PostApiResponse.ok(Map.of("attachmentId", attachmentId), "DELETED"));
     }
 
     // ✅ 조회수 증가
@@ -60,6 +105,23 @@ public class PostController {
             @RequestBody @Valid PostCreateRequest request
     ) {
         Long postId = postService.createPost(request);
+        return ResponseEntity.ok(PostApiResponse.ok(Map.of("postId", postId)));
+    }
+
+    @PostMapping(value = "/with-files", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
+    public ResponseEntity<PostApiResponse<Map<String, Long>>> createPostWithFiles(
+            @RequestParam String title,
+            @RequestParam String content,
+            @RequestParam(required = false) String category,
+            @RequestParam Long userId,
+            @RequestPart(required = false) List<MultipartFile> files
+    ) {
+        if (title == null || title.isBlank() || content == null || content.isBlank()) {
+            throw new IllegalArgumentException("제목과 내용은 필수입니다");
+        }
+
+        PostCreateRequest request = new PostCreateRequest(title, content, category, userId);
+        Long postId = postService.createPostWithFiles(request, files);
         return ResponseEntity.ok(PostApiResponse.ok(Map.of("postId", postId)));
     }
 
