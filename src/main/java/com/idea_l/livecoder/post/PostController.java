@@ -194,6 +194,7 @@ public class PostController {
 
     // ✅ 공지 작성(관리자 전용)
     @PostMapping("/admin/notices")
+    @org.springframework.security.access.prepost.PreAuthorize("hasRole('ADMIN')")
     public ResponseEntity<PostApiResponse<Map<String, Long>>> createNotice(
             @RequestBody @Valid AdminNoticeCreateRequest request
     ) {

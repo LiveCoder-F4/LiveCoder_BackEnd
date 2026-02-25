@@ -105,7 +105,7 @@ public class UserService {
         UserRole role = user.getRole() != null ? user.getRole() : UserRole.USER;
         String token = jwtUtil.generateToken(user.getUsername(), user.getUserId(), role);
 
-        return LoginResponse.success(user.getUserId(), user.getUsername(), user.getNickname(), token);
+        return LoginResponse.success(user.getUserId(), user.getUsername(), user.getNickname(), token, role.name());
     }
 
 

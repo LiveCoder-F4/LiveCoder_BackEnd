@@ -9,6 +9,7 @@ import lombok.AllArgsConstructor;
 import lombok.Getter;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
 
 @RestController
@@ -29,6 +30,7 @@ public class ProblemController {
     }
 
     @PostMapping
+    @PreAuthorize("hasRole('ADMIN')")
     public void create(@RequestBody ProblemCreateRequest request){
         problemService.create(request);
     }
@@ -44,11 +46,13 @@ public class ProblemController {
     }
 
     @PutMapping("/{problem_id}")
+    @PreAuthorize("hasRole('ADMIN')")
     public void update(@PathVariable Long problem_id, @RequestBody ProblemUpdateRequest request){
         problemService.update(problem_id, request);
     }
 
     @DeleteMapping("/{problem_id}")
+    @PreAuthorize("hasRole('ADMIN')")
     public void delete(@PathVariable Long problem_id){
         problemService.delete(problem_id);
     }

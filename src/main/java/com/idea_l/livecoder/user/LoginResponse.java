@@ -13,13 +13,14 @@ public class LoginResponse {
     private String username;
     private String nickname;
     private String token;
+    private String role;
     private String message;
 
-    public static LoginResponse success(Long userId, String username, String nickname, String token) {
-        return new LoginResponse(userId, username, nickname, token, "로그인 성공");
+    public static LoginResponse success(Long userId, String username, String nickname, String token, String role) {
+        return new LoginResponse(userId, username, nickname, token, role, "로그인 성공");
     }
 
     public static LoginResponse failure(String message) {
-        return new LoginResponse(null, null, null, null, message);
+        return new LoginResponse(null, null, null, null, null, message);
     }
 }
