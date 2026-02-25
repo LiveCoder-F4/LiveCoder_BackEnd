@@ -59,22 +59,33 @@ public class HomeService {
         return new HomeResponse(recommendedPosts, news, recentSolved);
     }
 
+    @Transactional(readOnly = true)
+    public Page<HomeNewsItem> getAllNews(Pageable pageable) {
+        return newsRepository.findAll(pageable)
+                .map(this::toHomeNewsItem);
+    }
+
     private List<HomeSolvedItem> fetchRecentSolvedDistinct(Long userId, int size) {
         // MySQL: problem_id별 최근 정답 제출 1개만 뽑고 그 중 최근 5개
         String sql = """
-            SELECT t.problem_id, p.title, d.difficulty, t.solved_at
+            SELECT t.problem_id, t.submission_id, p.title, d.difficulty, t.solved_at
             FROM (
-                SELECT s.problem_id, MAX(s.submitted_at) AS solved_at
+                SELECT s.problem_id, s.submission_id, s.submitted_at AS solved_at
                 FROM problem_submissions s
                 WHERE s.user_id = :userId
                   AND s.status = '정답'
-                GROUP BY s.problem_id
-                ORDER BY solved_at DESC
-                LIMIT :size
+                  AND s.submission_id = (
+                      SELECT MAX(s2.submission_id)
+                      FROM problem_submissions s2
+                      WHERE s2.user_id = s.user_id
+                        AND s2.problem_id = s.problem_id
+                        AND s2.status = '정답'
+                  )
             ) t
             JOIN problems p ON p.problem_id = t.problem_id
             JOIN difficulty d ON d.difficulty_id = p.difficulty_id
             ORDER BY t.solved_at DESC
+            LIMIT :size
         """;
 
         Query q = em.createNativeQuery(sql);
@@ -86,15 +97,16 @@ public class HomeService {
 
         return rows.stream().map(r -> {
             Long problemId = ((Number) r[0]).longValue();
-            String title = (String) r[1];
-            String difficulty = (String) r[2];
+            Long submissionId = ((Number) r[1]).longValue();
+            String title = (String) r[2];
+            String difficulty = (String) r[3];
 
             // submitted_at이 TIMESTAMP라 보통 java.sql.Timestamp로 옴
             LocalDateTime solvedAt = null;
-            if (r[3] instanceof Timestamp ts) solvedAt = ts.toLocalDateTime();
-            else if (r[3] instanceof LocalDateTime ldt) solvedAt = ldt;
+            if (r[4] instanceof Timestamp ts) solvedAt = ts.toLocalDateTime();
+            else if (r[4] instanceof LocalDateTime ldt) solvedAt = ldt;
 
-            return new HomeSolvedItem(problemId, title, difficulty, solvedAt);
+            return new HomeSolvedItem(problemId, submissionId, title, difficulty, solvedAt);
         }).toList();
     }
 

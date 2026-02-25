@@ -28,17 +28,31 @@ public class Submissions {
     @JoinColumn(name = "problem_id", nullable = false)
     private Problems problems;
 
+    @Column(columnDefinition = "TEXT")
     private String code;
 
-    private boolean correct;
+    private String language;
+
+    private String status; // '정답', '틀림', '컴파일 에러' 등
+
+    private Long executionTime; // 소요 시간 (ms)
+
+    private Long memoryUsage; // 메모리 사용량 (KB)
 
     private LocalDateTime submittedAt;
 
-    public Submissions(User user, Problems problems, String code, boolean correct){
+    @PrePersist
+    public void prePersist() {
+        this.submittedAt = LocalDateTime.now();
+    }
+
+    public Submissions(User user, Problems problems, String code, String language, String status, Long executionTime, Long memoryUsage) {
         this.user = user;
         this.problems = problems;
         this.code = code;
-        this.correct = correct;
-//        this.submittedAt = submittedAt;
+        this.language = language;
+        this.status = status;
+        this.executionTime = executionTime;
+        this.memoryUsage = memoryUsage;
     }
 }

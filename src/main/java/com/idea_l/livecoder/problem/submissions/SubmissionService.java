@@ -1,6 +1,6 @@
 package com.idea_l.livecoder.problem.submissions;
 
-import com.idea_l.livecoder.problem.ProblemJudgeService;
+import com.idea_l.livecoder.problem.JudgeService;
 import com.idea_l.livecoder.problem.ProblemService;
 import com.idea_l.livecoder.problem.Problems;
 import com.idea_l.livecoder.user.User;
@@ -13,39 +13,55 @@ public class SubmissionService {
 
     private final SubmissionRepository submissionRepository;
     private final ProblemService problemService;
-    private final ProblemJudgeService problemJudgeService;
     private final UserService userService;
 
     public SubmissionService(
             SubmissionRepository submissionRepository,
             ProblemService problemService,
-            ProblemJudgeService problemJudgeService,
             UserService userService
     ) {
         this.submissionRepository = submissionRepository;
         this.problemService = problemService;
-        this.problemJudgeService = problemJudgeService;
         this.userService = userService;
     }
 
     @Transactional
-    public boolean submit(Long problemId, String code) throws Exception {
+    public void submit(Long problemId, String code, String language, JudgeService.JudgeResult judgeResult) throws Exception {
 
-        User user = userService.getCurrentUser(); // 🔥 여기서 user_id 자동
-        Problems problems = problemService.getOne(problemId);
-
-        boolean correct =
-                problemJudgeService.judgeProblem(problems, code);
+        User user = userService.getCurrentUser();
+        if (user == null) {
+            throw new RuntimeException("로그인이 필요합니다.");
+        }
+        Problems problems = problemService.getEntity(problemId);
 
         Submissions submission = new Submissions(
                 user,
                 problems,
                 code,
-                correct
+                language,
+                judgeResult.getStatus(), // 정답, 틀림, 컴파일 에러 등
+                judgeResult.getExecutionTime(),
+                judgeResult.getMemoryUsage()
         );
 
         submissionRepository.save(submission);
+    }
 
-        return correct;
+    @Transactional(readOnly = true)
+    public SubmissionResponse getSubmission(Long submissionId) {
+        Submissions s = submissionRepository.findById(submissionId)
+                .orElseThrow(() -> new RuntimeException("해당 제출 내역을 찾을 수 없습니다."));
+
+        return new SubmissionResponse(
+                s.getSubmission_id(),
+                s.getProblems().getProblem_id(),
+                s.getProblems().getTitle(),
+                s.getCode(),
+                s.getLanguage(),
+                s.getStatus(),
+                s.getExecutionTime(),
+                s.getMemoryUsage(),
+                s.getSubmittedAt()
+        );
     }
 }

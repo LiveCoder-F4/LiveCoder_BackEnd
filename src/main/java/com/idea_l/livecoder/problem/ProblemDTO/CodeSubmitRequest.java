@@ -7,4 +7,5 @@ import lombok.NoArgsConstructor;
 @NoArgsConstructor
 public class CodeSubmitRequest {
     private String code;
+    private String language;
 }

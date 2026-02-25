@@ -12,8 +12,10 @@ public record PostDetailResponse(
         Integer viewCount,
         Integer likeCount,
         Integer commentCount,
+        Boolean isLiked,
         LocalDateTime createdAt,
-        List<CommentResponse> comments
+        List<CommentResponse> comments,
+        List<AttachmentResponse> attachments
 ) {}
 
 //댓글 포함 상세용
