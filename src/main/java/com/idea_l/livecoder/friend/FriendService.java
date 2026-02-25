@@ -169,6 +169,8 @@ public class FriendService {
         Friendship friendship = friendshipRepository.findByUsers(user, friend)
                 .orElseThrow(() -> new IllegalArgumentException("친구 관계가 아닙니다."));
 
+        friendRequestRepository.deleteByRequesterAndReceiver(user, friend);
+        friendRequestRepository.deleteByRequesterAndReceiver(friend, user);
         friendshipRepository.delete(friendship);
     }
 
