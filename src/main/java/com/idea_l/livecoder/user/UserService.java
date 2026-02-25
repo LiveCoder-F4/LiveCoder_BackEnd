@@ -106,7 +106,8 @@ public class UserService {
         user.setLastActiveAt(LocalDateTime.now());
         userRepository.save(user);
 
-        String token = jwtUtil.generateToken(user.getUsername(), user.getUserId(), user.getRole());
+        UserRole role = user.getRole() != null ? user.getRole() : UserRole.USER;
+        String token = jwtUtil.generateToken(user.getUsername(), user.getUserId(), role);
 
         return LoginResponse.success(user.getUserId(), user.getUsername(), user.getNickname(), token);
     }
