@@ -38,7 +38,7 @@ public class UserService {
         }
 
         user.setUsername(user.getUsername().toLowerCase());
-        user.setTotalSolved(0);
+        user.setTotalSolved(Integer.valueOf(0));
 
         return userRepository.save(user);
     }
@@ -75,9 +75,10 @@ public class UserService {
         user.setNickname(request.getNickname());
         user.setBio(request.getBio());
         user.setGithubUrl(request.getGithubUrl());
-        user.setTotalSolved(0);
-        user.setIsSolvedPublic(false);
+        user.setTotalSolved(Integer.valueOf(0));
+        user.setIsSolvedPublic(Boolean.valueOf(false));
         user.setCreatedAt(LocalDateTime.now());
+        user.setRole(UserRole.USER);
 
         return userRepository.save(user);
     }
@@ -101,7 +102,8 @@ public class UserService {
         user.setLastActiveAt(LocalDateTime.now());
         userRepository.save(user);
 
-        String token = jwtUtil.generateToken(user.getUsername(), user.getUserId());
+        UserRole role = user.getRole() != null ? user.getRole() : UserRole.USER;
+        String token = jwtUtil.generateToken(user.getUsername(), user.getUserId(), role);
 
         return LoginResponse.success(user.getUserId(), user.getUsername(), user.getNickname(), token);
     }
