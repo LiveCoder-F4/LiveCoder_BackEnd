@@ -42,7 +42,7 @@ public class UserService {
         }
 
         user.setUsername(user.getUsername().toLowerCase());
-        user.setTotalSolved(0);
+        user.setTotalSolved(Integer.valueOf(0));
 
         return userRepository.save(user);
     }
@@ -79,9 +79,10 @@ public class UserService {
         user.setNickname(request.getNickname());
         user.setBio(request.getBio());
         user.setGithubUrl(request.getGithubUrl());
-        user.setTotalSolved(0);
-        user.setIsSolvedPublic(false);
+        user.setTotalSolved(Integer.valueOf(0));
+        user.setIsSolvedPublic(Boolean.valueOf(false));
         user.setCreatedAt(LocalDateTime.now());
+        user.setRole(UserRole.USER);
 
         return userRepository.save(user);
     }
@@ -105,7 +106,7 @@ public class UserService {
         user.setLastActiveAt(LocalDateTime.now());
         userRepository.save(user);
 
-        String token = jwtUtil.generateToken(user.getUsername(), user.getUserId());
+        String token = jwtUtil.generateToken(user.getUsername(), user.getUserId(), user.getRole());
 
         return LoginResponse.success(user.getUserId(), user.getUsername(), user.getNickname(), token);
     }
@@ -127,7 +128,7 @@ public class UserService {
         return userRepository.findById(userId)
                 .orElseThrow(() -> new RuntimeException("유저 없음"));
     }
-}
+
     public void changePassword(Long userId, PasswordChangeRequest request) {
         User user = userRepository.findById(userId)
                 .orElseThrow(() -> new IllegalArgumentException("사용자를 찾을 수 없습니다"));
