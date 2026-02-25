@@ -148,6 +148,12 @@ public class UserController {
         }
     }
 
+    @Operation(summary = "닉네임 검색", description = "닉네임으로 사용자 목록을 검색합니다")
+    @GetMapping("/search/nickname")
+    public List<User> getUsersByNickname(@Parameter(description = "닉네임") @RequestParam String nickname) {
+        return userRepository.findByNicknameContainingIgnoreCase(nickname);
+    }
+
     @Operation(summary = "비밀번호 변경", description = "사용자의 비밀번호를 변경합니다")
     @PutMapping("/{id}/password")
     public ResponseEntity<?> changePassword(

@@ -25,11 +25,11 @@ public class Notification {
     private User user;
 
     @Enumerated(EnumType.STRING)
-    @Column(name = "type", nullable = false)
+    @Column(name = "type", nullable = false, length = 50)
     private NotificationType type;
 
-    @Column(name = "is_read")
-    private Boolean isRead = false;
+    @Column(name = "read_status")
+    private Boolean readStatus = false;
 
     @Column(name = "content", nullable = false, columnDefinition = "TEXT")
     private String content;

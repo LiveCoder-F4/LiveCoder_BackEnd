@@ -1,0 +1,464 @@
+-- =========================
+-- LiveCoder schema (revised)
+-- 기능정의 + API JSON 기준
+-- =========================
+-- SELECT VERSION();
+
+SET @OLD_UNIQUE_CHECKS=@@UNIQUE_CHECKS, UNIQUE_CHECKS=0;
+SET @OLD_FOREIGN_KEY_CHECKS=@@FOREIGN_KEY_CHECKS, FOREIGN_KEY_CHECKS=0;
+
+DROP SCHEMA IF EXISTS `livecoder`;
+CREATE SCHEMA IF NOT EXISTS `livecoder` DEFAULT CHARACTER SET utf8mb4;
+USE `livecoder`;
+
+-- -------------------------
+-- users
+-- -------------------------
+CREATE TABLE IF NOT EXISTS `users` (
+  `user_id` BIGINT NOT NULL AUTO_INCREMENT,
+  `username` VARCHAR(45) NOT NULL,
+  `email` VARCHAR(80) NOT NULL,
+  `password` VARCHAR(255) NOT NULL,          -- ✅ 해시 고려 (45 -> 255)
+  `nickname` VARCHAR(45) NOT NULL,
+  `bio` TEXT NULL,
+  `total_solved` INT NULL DEFAULT 0,
+  `github_url` VARCHAR(200) NULL,
+  `last_active_at` TIMESTAMP NULL,
+  `is_solved_public` TINYINT NOT NULL DEFAULT 0, -- ✅ 공개문제목록/경쟁 기능용
+  `created_at` TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP, -- ✅ create_at -> created_at
+  PRIMARY KEY (`user_id`),
+  UNIQUE KEY `uk_users_username` (`username`),
+  UNIQUE KEY `uk_users_email` (`email`)
+) ENGINE=InnoDB;
+
+-- -------------------------
+-- difficulty
+-- -------------------------
+CREATE TABLE IF NOT EXISTS `difficulty` (
+  `difficulty_id` BIGINT NOT NULL AUTO_INCREMENT,
+  `name` VARCHAR(45) NOT NULL,
+  `difficulty_score` INT NULL,
+  PRIMARY KEY (`difficulty_id`)
+) ENGINE=InnoDB;
+
+-- -------------------------
+-- problems
+-- -------------------------
+CREATE TABLE IF NOT EXISTS `problems` (
+  `problem_id` BIGINT NOT NULL AUTO_INCREMENT,
+  -- `author_id` BIGINT NOT NULL,
+  `title` VARCHAR(200) NOT NULL,
+  `description` TEXT NOT NULL,
+  `input_description` TEXT NULL,
+  `output_description` TEXT NULL,
+  `sample_input` TEXT NULL,
+  `sample_output` TEXT NULL,
+  `constraints` TEXT NULL,
+  `time_limit` INT NULL,
+  `memory_limit` INT NULL,
+  `solved_count` INT NULL DEFAULT 0,
+  `submission_count` INT NULL DEFAULT 0,
+  `created_at` TIMESTAMP NULL DEFAULT CURRENT_TIMESTAMP,
+  `difficulty_id` BIGINT NOT NULL,
+  PRIMARY KEY (`problem_id`),
+  -- KEY `idx_problems_author` (`author_id`),
+  KEY `idx_problems_difficulty` (`difficulty_id`),
+  -- CONSTRAINT `fk_problems_users`
+    -- FOREIGN KEY (`author_id`) REFERENCES `users` (`user_id`)
+    -- ON DELETE RESTRICT ON UPDATE CASCADE,
+  CONSTRAINT `fk_problems_difficulty`
+    FOREIGN KEY (`difficulty_id`) REFERENCES `difficulty` (`difficulty_id`)
+    ON DELETE RESTRICT ON UPDATE CASCADE
+) ENGINE=InnoDB;
+
+-- -------------------------
+-- problem_submissions
+-- (풀이 제출/채점/기록 저장 + 경쟁(친구 공개 문제 도전)까지 여기로 커버)
+-- -------------------------
+CREATE TABLE IF NOT EXISTS `problem_submissions` (
+  `submission_id` BIGINT NOT NULL AUTO_INCREMENT,
+  `user_id` BIGINT NOT NULL,
+  `problem_id` BIGINT NOT NULL,
+  `language` ENUM('C++', 'JAVA', 'python') NOT NULL,
+  `code` TEXT NULL,
+  `status` ENUM('정답', '틀림', '컴파일 에러', '런타임 에러', '시간 초과') NOT NULL,
+  `execution_time` INT NULL,
+  `memory_usage` INT NULL,
+  `submitted_at` TIMESTAMP NULL DEFAULT CURRENT_TIMESTAMP,
+  PRIMARY KEY (`submission_id`),
+  KEY `idx_submissions_user` (`user_id`),
+  KEY `idx_submissions_problem` (`problem_id`),
+  KEY `idx_submissions_user_problem` (`user_id`, `problem_id`),
+  CONSTRAINT `fk_submissions_users`
+    FOREIGN KEY (`user_id`) REFERENCES `users` (`user_id`)
+    ON DELETE CASCADE ON UPDATE CASCADE,
+  CONSTRAINT `fk_submissions_problems`
+    FOREIGN KEY (`problem_id`) REFERENCES `problems` (`problem_id`)
+    ON DELETE CASCADE ON UPDATE CASCADE
+) ENGINE=InnoDB;
+
+-- -------------------------
+-- posts (공지/커뮤니티)
+-- -------------------------
+CREATE TABLE IF NOT EXISTS `posts` (
+  `post_id` BIGINT NOT NULL AUTO_INCREMENT,
+  `user_id` BIGINT NOT NULL,
+  `title` VARCHAR(200) NOT NULL,
+  `content` TEXT NOT NULL,
+  `is_notice` TINYINT NOT NULL DEFAULT 0, -- ✅ 공지사항
+  `comment_count` INT NOT NULL DEFAULT 0,
+  `view_count` INT NOT NULL DEFAULT 0,
+  `like_count` INT NOT NULL DEFAULT 0,
+  `created_at` TIMESTAMP NULL DEFAULT CURRENT_TIMESTAMP,
+  PRIMARY KEY (`post_id`),
+  KEY `idx_posts_user` (`user_id`),
+  KEY `idx_posts_notice` (`is_notice`, `created_at`),
+  CONSTRAINT `fk_posts_users`
+    FOREIGN KEY (`user_id`) REFERENCES `users` (`user_id`)
+    ON DELETE CASCADE ON UPDATE CASCADE
+) ENGINE=InnoDB;
+ALTER TABLE posts
+ADD COLUMN category VARCHAR(50) NOT NULL DEFAULT 'INFO' AFTER content;
+
+-- ✅ 좋아요 구현 필수 (누가 눌렀는지)
+CREATE TABLE IF NOT EXISTS `post_likes` (
+  `post_id` BIGINT NOT NULL,
+  `user_id` BIGINT NOT NULL,
+  `created_at` TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  PRIMARY KEY (`post_id`, `user_id`),
+  KEY `idx_post_likes_user` (`user_id`),
+  CONSTRAINT `fk_post_likes_post`
+    FOREIGN KEY (`post_id`) REFERENCES `posts` (`post_id`)
+    ON DELETE CASCADE ON UPDATE CASCADE,
+  CONSTRAINT `fk_post_likes_user`
+    FOREIGN KEY (`user_id`) REFERENCES `users` (`user_id`)
+    ON DELETE CASCADE ON UPDATE CASCADE
+) ENGINE=InnoDB;
+--
+-- 첨부파일 테이블
+CREATE TABLE IF NOT EXISTS post_attachments (
+  attachment_id BIGINT NOT NULL AUTO_INCREMENT,
+  post_id BIGINT NOT NULL,
+  original_filename VARCHAR(255) NOT NULL,
+  stored_filename VARCHAR(255) NOT NULL,
+  content_type VARCHAR(100) NULL,
+  file_size BIGINT NOT NULL,
+  created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  PRIMARY KEY (attachment_id),
+  KEY idx_post_attachments_post (post_id, created_at),
+  CONSTRAINT fk_post_attachments_post
+    FOREIGN KEY (post_id) REFERENCES posts(post_id)
+    ON DELETE CASCADE ON UPDATE CASCADE
+) ENGINE=InnoDB;
+
+-- -------------------------
+-- comments (댓글/대댓글)
+-- -------------------------
+CREATE TABLE IF NOT EXISTS `comments` (
+  `comment_id` BIGINT NOT NULL AUTO_INCREMENT,
+  `user_id` BIGINT NOT NULL,
+  `post_id` BIGINT NOT NULL,
+  `parent_id` BIGINT NULL,                  -- ✅ NOT NULL -> NULL (일반 댓글 허용)
+  `content` TEXT NOT NULL,
+  `created_at` TIMESTAMP NULL DEFAULT CURRENT_TIMESTAMP,
+  PRIMARY KEY (`comment_id`),
+  KEY `idx_comments_post` (`post_id`, `created_at`),
+  KEY `idx_comments_user` (`user_id`),
+  KEY `idx_comments_parent` (`parent_id`),
+  CONSTRAINT `fk_comments_users`
+    FOREIGN KEY (`user_id`) REFERENCES `users` (`user_id`)
+    ON DELETE CASCADE ON UPDATE CASCADE,
+  CONSTRAINT `fk_comments_posts`
+    FOREIGN KEY (`post_id`) REFERENCES `posts` (`post_id`)
+    ON DELETE CASCADE ON UPDATE CASCADE,
+  CONSTRAINT `fk_comments_parent`
+    FOREIGN KEY (`parent_id`) REFERENCES `comments` (`comment_id`)
+    ON DELETE CASCADE ON UPDATE CASCADE
+) ENGINE=InnoDB;
+
+-- -------------------------
+-- notifications (알림)
+-- battle_invite는 기능 정의에서 빠졌지만 남겨도 무방
+-- -------------------------
+CREATE TABLE IF NOT EXISTS `notifications` (
+  `notification_id` BIGINT NOT NULL AUTO_INCREMENT,
+  `user_id` BIGINT NOT NULL,
+  `type` ENUM('friend_request', 'comment', 'like', 'system') NOT NULL,
+  `is_read` TINYINT NOT NULL DEFAULT 0,
+  `content` TEXT NOT NULL,
+  `created_at` TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  PRIMARY KEY (`notification_id`),
+  KEY `idx_notifications_user` (`user_id`, `is_read`, `created_at`),
+  CONSTRAINT `fk_notifications_users`
+    FOREIGN KEY (`user_id`) REFERENCES `users` (`user_id`)
+    ON DELETE CASCADE ON UPDATE CASCADE
+) ENGINE=InnoDB;
+
+-- -------------------------
+-- friends
+-- friendship: 친구 관계(쌍 유니크)
+-- friend_requests: 요청/수락/거절
+-- friend_detail: 차단/메모 등(유저별 친구 상세)
+-- -------------------------
+CREATE TABLE IF NOT EXISTS `friendship` (
+  `id` BIGINT NOT NULL AUTO_INCREMENT,
+  `user1_id` BIGINT NOT NULL,
+  `user2_id` BIGINT NOT NULL,
+  `created_at` TIMESTAMP NULL DEFAULT CURRENT_TIMESTAMP,
+  PRIMARY KEY (`id`),
+  KEY `idx_friendship_user1` (`user1_id`),
+  KEY `idx_friendship_user2` (`user2_id`),
+  UNIQUE KEY `uk_friendship_pair` (`user1_id`, `user2_id`),
+ 
+  CONSTRAINT `fk_friendship_user1`
+    FOREIGN KEY (`user1_id`) REFERENCES `users` (`user_id`)
+    ON DELETE CASCADE ON UPDATE CASCADE,
+  CONSTRAINT `fk_friendship_user2`
+    FOREIGN KEY (`user2_id`) REFERENCES `users` (`user_id`)
+    ON DELETE CASCADE ON UPDATE CASCADE
+) ENGINE=InnoDB;
+
+CREATE TABLE IF NOT EXISTS `friend_requests` (
+  `request_id` BIGINT NOT NULL AUTO_INCREMENT,
+  `requester_id` BIGINT NOT NULL,
+  `receiver_id` BIGINT NOT NULL,
+  `status` ENUM('pending', 'accepted', 'declined') NOT NULL DEFAULT 'pending',
+  `requested_at` TIMESTAMP NULL DEFAULT CURRENT_TIMESTAMP,
+  PRIMARY KEY (`request_id`),
+  KEY `idx_friend_requests_receiver` (`receiver_id`, `status`, `requested_at`),
+  KEY `idx_friend_requests_requester` (`requester_id`, `status`, `requested_at`),
+  UNIQUE KEY `uk_friend_request_once` (`requester_id`, `receiver_id`),
+  CONSTRAINT `fk_friend_requests_requester`
+    FOREIGN KEY (`requester_id`) REFERENCES `users` (`user_id`)
+    ON DELETE CASCADE ON UPDATE CASCADE,
+  CONSTRAINT `fk_friend_requests_receiver`
+    FOREIGN KEY (`receiver_id`) REFERENCES `users` (`user_id`)
+    ON DELETE CASCADE ON UPDATE CASCADE
+) ENGINE=InnoDB;
+
+CREATE TABLE IF NOT EXISTS `friend_detail` (
+  `id` BIGINT NOT NULL AUTO_INCREMENT,
+  `user_id` BIGINT NOT NULL,
+  `friend_id` BIGINT NOT NULL,
+  `is_blocked` TINYINT NOT NULL DEFAULT 0,
+  `memo` TEXT NULL,
+  PRIMARY KEY (`id`),
+  UNIQUE KEY `uk_friend_detail_pair` (`user_id`, `friend_id`),
+  KEY `idx_friend_detail_friend` (`friend_id`),
+  CONSTRAINT `fk_friend_detail_user`
+    FOREIGN KEY (`user_id`) REFERENCES `users` (`user_id`)
+    ON DELETE CASCADE ON UPDATE CASCADE,
+  CONSTRAINT `fk_friend_detail_friend`
+    FOREIGN KEY (`friend_id`) REFERENCES `users` (`user_id`)
+    ON DELETE CASCADE ON UPDATE CASCADE
+) ENGINE=InnoDB;
+
+-- -------------------------
+-- friend_messages (쪽지 + 읽음처리)
+-- chatroom 없이 sender/receiver로 바로 저장
+-- -------------------------
+
+-- ✅ FK 걸린 message부터 먼저 삭제해야 오류 안 남
+
+CREATE TABLE IF NOT EXISTS `friend_messages` (
+  `message_id` BIGINT NOT NULL AUTO_INCREMENT,
+  `sender_id` BIGINT NOT NULL,
+  `receiver_id` BIGINT NOT NULL,
+  `content` TEXT NOT NULL,
+  `is_read` TINYINT NOT NULL DEFAULT 0,      -- 읽음처리
+  `read_at` TIMESTAMP NULL,
+  `created_at` TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  PRIMARY KEY (`message_id`),
+
+  KEY `idx_friend_messages_sender` (`sender_id`, `created_at`),
+  KEY `idx_friend_messages_receiver` (`receiver_id`, `is_read`, `created_at`),
+
+  CONSTRAINT `fk_friend_messages_sender`
+    FOREIGN KEY (`sender_id`) REFERENCES `users` (`user_id`)
+    ON DELETE CASCADE ON UPDATE CASCADE,
+
+  CONSTRAINT `fk_friend_messages_receiver`
+    FOREIGN KEY (`receiver_id`) REFERENCES `users` (`user_id`)
+    ON DELETE CASCADE ON UPDATE CASCADE
+) ENGINE=InnoDB;
+
+
+-- -------------------------
+-- collab (협업)
+-- 팀/멤버/원본코드/답글버전/초대
+-- -------------------------
+CREATE TABLE IF NOT EXISTS `collab_teams` (
+  `collab_id` BIGINT NOT NULL AUTO_INCREMENT,
+  `owner_id` BIGINT NOT NULL,
+  `title` VARCHAR(200) NOT NULL,
+  `problem_id` BIGINT NULL,
+  `visibility` ENUM('public', 'private') NOT NULL DEFAULT 'private',
+  `password_hash` VARCHAR(255) NULL,         -- ✅ 비번 인증(저장 시 해시 권장)
+  `created_at` TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  PRIMARY KEY (`collab_id`),
+  KEY `idx_collab_owner` (`owner_id`),
+  CONSTRAINT `fk_collab_owner`
+    FOREIGN KEY (`owner_id`) REFERENCES `users` (`user_id`)
+    ON DELETE CASCADE ON UPDATE CASCADE,
+  CONSTRAINT `fk_collab_problem`
+    FOREIGN KEY (`problem_id`) REFERENCES `problems` (`problem_id`)
+    ON DELETE SET NULL ON UPDATE CASCADE
+) ENGINE=InnoDB;
+
+CREATE TABLE IF NOT EXISTS `collab_members` (
+  `collab_id` BIGINT NOT NULL,
+  `user_id` BIGINT NOT NULL,
+  `role` ENUM('owner', 'member') NOT NULL DEFAULT 'member',
+  `joined_at` TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  PRIMARY KEY (`collab_id`, `user_id`),
+  KEY `idx_collab_members_user` (`user_id`),
+  CONSTRAINT `fk_collab_members_team`
+    FOREIGN KEY (`collab_id`) REFERENCES `collab_teams` (`collab_id`)
+    ON DELETE CASCADE ON UPDATE CASCADE,
+  CONSTRAINT `fk_collab_members_user`
+    FOREIGN KEY (`user_id`) REFERENCES `users` (`user_id`)
+    ON DELETE CASCADE ON UPDATE CASCADE
+) ENGINE=InnoDB;
+
+-- 원본 코드(작성자만 수정 가능)
+CREATE TABLE IF NOT EXISTS `collab_codes` (
+  `code_id` BIGINT NOT NULL AUTO_INCREMENT,
+  `collab_id` BIGINT NOT NULL,
+  `author_id` BIGINT NOT NULL,
+  `language` ENUM('C++', 'JAVA', 'python') NOT NULL,
+  `code` TEXT NOT NULL,
+  `description` TEXT NULL,
+  `version` INT NOT NULL DEFAULT 1,
+  `created_at` TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  `updated_at` TIMESTAMP NULL,
+  PRIMARY KEY (`code_id`),
+  UNIQUE KEY `uk_collab_code_one` (`collab_id`), -- ✅ 팀당 원본 1개(원하면 여러개로 바꿀 수도 있음)
+  CONSTRAINT `fk_collab_codes_team`
+    FOREIGN KEY (`collab_id`) REFERENCES `collab_teams` (`collab_id`)
+    ON DELETE CASCADE ON UPDATE CASCADE,
+  CONSTRAINT `fk_collab_codes_author`
+    FOREIGN KEY (`author_id`) REFERENCES `users` (`user_id`)
+    ON DELETE CASCADE ON UPDATE CASCADE
+) ENGINE=InnoDB;
+
+-- 답글(버전) - "원본 ㄴ 1 ㄴ 2" 구조
+CREATE TABLE IF NOT EXISTS `collab_code_replies` (
+  `reply_id` BIGINT NOT NULL AUTO_INCREMENT,
+  `collab_id` BIGINT NOT NULL,
+  `author_id` BIGINT NOT NULL,
+  `message` TEXT NOT NULL,
+  `language` ENUM('C++', 'JAVA', 'python') NOT NULL,
+  `code` TEXT NOT NULL,
+  `version` INT NOT NULL,
+  `created_at` TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  PRIMARY KEY (`reply_id`),
+  KEY `idx_collab_reply_team` (`collab_id`, `version`),
+  CONSTRAINT `fk_collab_replies_team`
+    FOREIGN KEY (`collab_id`) REFERENCES `collab_teams` (`collab_id`)
+    ON DELETE CASCADE ON UPDATE CASCADE,
+  CONSTRAINT `fk_collab_replies_author`
+    FOREIGN KEY (`author_id`) REFERENCES `users` (`user_id`)
+    ON DELETE CASCADE ON UPDATE CASCADE
+) ENGINE=InnoDB;
+
+-- 초대
+CREATE TABLE IF NOT EXISTS `collab_invites` (
+  `invite_id` BIGINT NOT NULL AUTO_INCREMENT,
+  `collab_id` BIGINT NOT NULL,
+  `inviter_id` BIGINT NOT NULL,
+  `invitee_id` BIGINT NOT NULL,
+  `status` ENUM('pending', 'accepted', 'declined', 'canceled') NOT NULL DEFAULT 'pending',
+  `created_at` TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  PRIMARY KEY (`invite_id`),
+  KEY `idx_collab_invites_invitee` (`invitee_id`, `status`),
+  KEY `idx_collab_invites_collab` (`collab_id`, `status`),
+  CONSTRAINT `fk_collab_invites_team`
+    FOREIGN KEY (`collab_id`) REFERENCES `collab_teams` (`collab_id`)
+    ON DELETE CASCADE ON UPDATE CASCADE,
+  CONSTRAINT `fk_collab_invites_inviter`
+    FOREIGN KEY (`inviter_id`) REFERENCES `users` (`user_id`)
+    ON DELETE CASCADE ON UPDATE CASCADE,
+  CONSTRAINT `fk_collab_invites_invitee`
+    FOREIGN KEY (`invitee_id`) REFERENCES `users` (`user_id`)
+    ON DELETE CASCADE ON UPDATE CASCADE
+) ENGINE=InnoDB;
+
+-- -------------------------
+-- home news (선택: newsId 쓰는 명세서라면 추천)
+-- -------------------------
+-- DROP table `news`;
+CREATE TABLE IF NOT EXISTS `news` (
+  `news_id` BIGINT NOT NULL AUTO_INCREMENT,
+  `title` VARCHAR(300) NOT NULL,
+  `url` VARCHAR(500) NOT NULL,
+  `published_at` TIMESTAMP NULL,
+  `created_at` TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  PRIMARY KEY (`news_id`)
+) ENGINE=InnoDB;
+
+SET FOREIGN_KEY_CHECKS=@OLD_FOREIGN_KEY_CHECKS;
+SET UNIQUE_CHECKS=@OLD_UNIQUE_CHECKS;
+-- 유저 테스트 
+-- INSERT INTO users (username, email, password, nickname, is_solved_public)
+-- VALUES ('test1', 'test1@livecoder.com', '1234', '테스트유저', 1);
+-- INSERT INTO users (username, email, password, nickname, is_solved_public)
+-- VALUES ('test264', 'test2@livecoder.com', '4567', '테스트유저2', 2);
+-- 뉴스 테스트
+ INSERT INTO news(title, url, published_at) VALUES
+ ('테스트 뉴스 1', 'https://n.news.naver.com/article/586/0000122940?cds=news_media_pc&type=editn', NULL);
+-- INSERT INTO news(title, url, published_at) VALUES
+-- ('테스트 뉴스 2', 'https://example.com/news2', NULL);
+-- INSERT INTO news(title, url, published_at) VALUES
+-- ('테스트 뉴스 3', 'https://example.com/news3', NULL);
+-- INSERT INTO news(title, url, published_at) VALUES
+-- ('테스트 뉴스 4', 'https://example.com/news4', NULL);
+-- INSERT INTO news(title, url, published_at) VALUES
+-- ('테스트 뉴스 5', 'https://example.com/news5', NULL);
+-- 1 5 3 4 2
+-- 문제 테스트 난이도 
+INSERT INTO difficulty (name) VALUES ('Easy');
+INSERT INTO difficulty (name) VALUES ('Medium');
+INSERT INTO difficulty (name) VALUES ('Hard');
+-- 문제 5개 
+-- INSERT INTO problems(author_id, title, description, difficulty_id) VALUES
+-- (1, '문제1', 'desc', 1),
+-- (1, '문제2', 'desc', 2),
+-- (1, '문제3', 'desc', 1),
+-- (1, '문제4', 'desc', 3),
+-- (1, '문제5', 'desc', 2);
+-- 문제 테스트 현재 구성이 정답만 홈으로 가져오고 같은 id 사용시 최신 1개만 나오게
+-- INSERT INTO problem_submissions(user_id, problem_id, language, code, status, submitted_at) VALUES
+-- (1, 1, 'JAVA', 'code', '정답', NOW() - INTERVAL 10 MINUTE),
+-- (1, 1, 'JAVA', 'code', '정답', NOW() - INTERVAL 1 MINUTE),  -- 문제1 최신 정답
+-- (1, 2, 'JAVA', 'code', '정답', NOW() - INTERVAL 20 MINUTE),
+-- (1, 3, 'JAVA', 'code', '틀림', NOW() - INTERVAL 30 MINUTE), -- 틀림은 제외됨
+-- (1, 3, 'JAVA', 'code', '정답', NOW() - INTERVAL 5 MINUTE),
+-- (1, 4, 'JAVA', 'code', '정답', NOW() - INTERVAL 40 MINUTE),
+-- (1, 5, 'JAVA', 'code', '정답', NOW() - INTERVAL 50 MINUTE);
+
+-- 좋아요 보기 게시글 좋아요 포스트 유저
+SELECT like_count FROM posts WHERE post_id = 1;
+SELECT * FROM post_likes WHERE post_id = 1;
+SELECT * FROM users;
+SELECT* FROM posts;
+SELECT * FROM news;
+SELECT * FROM difficulty;
+SELECT * FROM problems;
+SELECT * FROM problem_submissions;
+SHOW CREATE TABLE difficulty;
+SHOW CREATE TABLE problems;
+DESC users;
+SELECT COUNT(*) FROM users;
+select*from friendship;
+select*from friend_requests;
+select*from friend_messages;
+DESC posts;
+SHOW CREATE TABLE posts;
+DESC post_attachments;
+SHOW CREATE TABLE post_attachments;
+DESC comments;
+DESC post_likes;
+SHOW CREATE TABLE posts;
+SHOW CREATE TABLE comments;
+SHOW CREATE TABLE post_likes;
+SHOW CREATE TABLE post_attachments;

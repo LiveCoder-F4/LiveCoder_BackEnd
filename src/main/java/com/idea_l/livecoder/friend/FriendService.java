@@ -17,16 +17,19 @@ public class FriendService {
     private final FriendshipRepository friendshipRepository;
     private final FriendMessageRepository friendMessageRepository;
     private final UserRepository userRepository;
+    private final com.idea_l.livecoder.notification.NotificationService notificationService;
 
     @Autowired
     public FriendService(FriendRequestRepository friendRequestRepository,
                          FriendshipRepository friendshipRepository,
                          FriendMessageRepository friendMessageRepository,
-                         UserRepository userRepository) {
+                         UserRepository userRepository,
+                         com.idea_l.livecoder.notification.NotificationService notificationService) {
         this.friendRequestRepository = friendRequestRepository;
         this.friendshipRepository = friendshipRepository;
         this.friendMessageRepository = friendMessageRepository;
         this.userRepository = userRepository;
+        this.notificationService = notificationService;
     }
 
     @Transactional(readOnly = true)
@@ -68,12 +71,21 @@ public class FriendService {
             throw new IllegalArgumentException("상대방이 이미 친구 요청을 보냈습니다. 받은 요청을 확인해주세요.");
         }
 
-        FriendRequest request = new FriendRequest();
-        request.setRequester(requester);
-        request.setReceiver(receiver);
+        // 기존 요청이 있는지 확인 (이미 존재하면 상태만 PENDING으로 업데이트)
+        FriendRequest request = friendRequestRepository.findByRequesterAndReceiver(requester, receiver)
+                .orElse(new FriendRequest());
+
+        if (request.getRequestId() == null) {
+            request.setRequester(requester);
+            request.setReceiver(receiver);
+        }
         request.setStatus(RequestStatus.PENDING);
 
-        return FriendRequestResponse.from(friendRequestRepository.save(request));
+        FriendRequest savedRequest = friendRequestRepository.save(request);
+        notificationService.createNotification(receiver, com.idea_l.livecoder.common.NotificationType.FRIEND_REQUEST, 
+                requester.getNickname() + "님이 친구 요청을 보냈습니다.");
+
+        return FriendRequestResponse.from(savedRequest);
     }
 
     @Transactional(readOnly = true)
@@ -92,7 +104,7 @@ public class FriendService {
         User user = userRepository.findById(userId)
                 .orElseThrow(() -> new IllegalArgumentException("존재하지 않는 사용자입니다."));
 
-        return friendRequestRepository.findByRequester(user)
+        return friendRequestRepository.findByRequesterAndStatus(user, RequestStatus.PENDING)
                 .stream()
                 .map(FriendRequestResponse::from)
                 .toList();
@@ -101,20 +113,26 @@ public class FriendService {
     @Transactional
     public void acceptFriendRequest(Long userId, Long requestId) {
         FriendRequest request = friendRequestRepository.findById(requestId)
-                .orElseThrow(() -> new IllegalArgumentException("존재하지 않는 친구 요청입니다."));
+                .orElseThrow(() -> new IllegalArgumentException("존재하지 않는 친구 요청입니다. ID: " + requestId));
 
         if (!request.getReceiver().getUserId().equals(userId)) {
             throw new IllegalArgumentException("본인에게 온 요청만 수락할 수 있습니다.");
         }
 
         if (request.getStatus() != RequestStatus.PENDING) {
-            throw new IllegalArgumentException("이미 처리된 요청입니다.");
+            throw new IllegalArgumentException("이미 처리된 요청입니다. 현재 상태: " + request.getStatus());
         }
-
-        request.setStatus(RequestStatus.ACCEPTED);
 
         User requester = request.getRequester();
         User receiver = request.getReceiver();
+
+        // 이미 친구인지 확인 (중복 삽입 방지)
+        if (friendshipRepository.existsByUsers(requester, receiver)) {
+            request.setStatus(RequestStatus.ACCEPTED); // 상태는 업데이트해줌
+            return;
+        }
+
+        request.setStatus(RequestStatus.ACCEPTED);
 
         Friendship friendship = new Friendship();
         if (requester.getUserId() < receiver.getUserId()) {
@@ -156,7 +174,7 @@ public class FriendService {
             throw new IllegalArgumentException("이미 처리된 요청입니다.");
         }
 
-        friendRequestRepository.delete(request);
+        request.setStatus(RequestStatus.CANCELED);
     }
 
     @Transactional
@@ -187,7 +205,42 @@ public class FriendService {
         message.setSender(sender);
         message.setReceiver(receiver);
         message.setContent(content);
+        message.setIsRead(false);
 
-        return FriendMessageResponse.from(friendMessageRepository.save(message));
+        FriendMessage savedMessage = friendMessageRepository.save(message);
+        
+        System.out.println("[FriendService] 메시지 전송 성공: senderId=" + senderId + ", receiverId=" + receiverId);
+        
+        try {
+            System.out.println("[FriendService] 알림 생성 시도: receiver=" + receiver.getNickname());
+            notificationService.createNotification(receiver, com.idea_l.livecoder.common.NotificationType.MESSAGE, 
+                    sender.getNickname() + "님에게서 새로운 쪽지가 왔습니다.");
+            System.out.println("[FriendService] 알림 생성 완료");
+        } catch (Exception e) {
+            System.err.println("[FriendService] 알림 생성 실패: " + e.getMessage());
+            e.printStackTrace();
+        }
+
+        return FriendMessageResponse.from(savedMessage);
+    }
+
+    @Transactional(readOnly = true)
+    public List<FriendMessageResponse> getReceivedMessages(Long userId) {
+        User user = userRepository.findById(userId)
+                .orElseThrow(() -> new IllegalArgumentException("존재하지 않는 사용자입니다."));
+        return friendMessageRepository.findByReceiverOrderByCreatedAtDesc(user)
+                .stream()
+                .map(FriendMessageResponse::from)
+                .toList();
+    }
+
+    @Transactional(readOnly = true)
+    public List<FriendMessageResponse> getSentMessages(Long userId) {
+        User user = userRepository.findById(userId)
+                .orElseThrow(() -> new IllegalArgumentException("존재하지 않는 사용자입니다."));
+        return friendMessageRepository.findBySenderOrderByCreatedAtDesc(user)
+                .stream()
+                .map(FriendMessageResponse::from)
+                .toList();
     }
 }

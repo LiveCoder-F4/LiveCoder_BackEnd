@@ -45,9 +45,10 @@ public class PostController {
     public ResponseEntity<PostApiResponse<PostListPageResponse>> getPostsByCategory(
             @RequestParam String category,
             @RequestParam(defaultValue = "0") int page,
-            @RequestParam(defaultValue = "10") int size
+            @RequestParam(defaultValue = "10") int size,
+            @RequestParam(defaultValue = "latest") String sort
     ) {
-        return ResponseEntity.ok(PostApiResponse.ok(postService.getPostsByCategory(category, page, size)));
+        return ResponseEntity.ok(PostApiResponse.ok(postService.getPostsByCategory(category, page, size, sort)));
     }
 
     // 검색기능

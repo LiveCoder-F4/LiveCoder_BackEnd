@@ -7,6 +7,7 @@ public enum NotificationType {
     FRIEND_REQUEST("friend_request"),
     COMMENT("comment"),
     LIKE("like"),
+    MESSAGE("message"),
     SYSTEM("system");
 
     private final String value;

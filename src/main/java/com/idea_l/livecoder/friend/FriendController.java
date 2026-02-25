@@ -205,6 +205,26 @@ public class FriendController {
         }
     }
 
+    @GetMapping("/msg/received")
+    @Operation(summary = "받은 쪽지 조회", description = "현재 로그인한 사용자가 받은 쪽지 목록을 조회합니다.")
+    public ResponseEntity<List<FriendMessageResponse>> getReceivedMessages(HttpServletRequest request) {
+        Long userId = getUserIdFromToken(request);
+        if (userId == null) {
+            return ResponseEntity.status(401).build();
+        }
+        return ResponseEntity.ok(friendService.getReceivedMessages(userId));
+    }
+
+    @GetMapping("/msg/sent")
+    @Operation(summary = "보낸 쪽지 조회", description = "현재 로그인한 사용자가 보낸 쪽지 목록을 조회합니다.")
+    public ResponseEntity<List<FriendMessageResponse>> getSentMessages(HttpServletRequest request) {
+        Long userId = getUserIdFromToken(request);
+        if (userId == null) {
+            return ResponseEntity.status(401).build();
+        }
+        return ResponseEntity.ok(friendService.getSentMessages(userId));
+    }
+
     private Long getUserIdFromToken(HttpServletRequest request) {
         String authHeader = request.getHeader("Authorization");
         if (authHeader != null && authHeader.startsWith("Bearer ")) {

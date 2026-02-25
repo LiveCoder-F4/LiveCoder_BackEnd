@@ -95,8 +95,9 @@ public class PostService {
     }
 
     @Transactional(readOnly = true)
-    public PostListPageResponse getPostsByCategory(String category, int page, int size) {
-        Pageable pageable = PageRequest.of(page, size, Sort.by(Sort.Direction.DESC, "createdAt"));
+    public PostListPageResponse getPostsByCategory(String category, int page, int size, String sort) {
+        Sort sortSpec = buildSearchSort(sort);
+        Pageable pageable = PageRequest.of(page, size, sortSpec);
         Page<Post> postPage = postRepository.findByCategory(category, pageable);
 
         List<PostListResponse> items = postPage.getContent()
